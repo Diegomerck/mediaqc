@@ -1,0 +1,30 @@
+# Developer dependencies and toolchains
+node_modules/
+.venv/
+.tools/
+.cache/
+
+# Build and test outputs
+dist/
+target/
+coverage/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.tsbuildinfo
+apps/desktop/src-tauri/gen/
+tests/fixtures/generated/*
+!tests/fixtures/generated/.gitkeep
+
+# Local settings and diagnostics
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

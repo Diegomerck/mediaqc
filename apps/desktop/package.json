@@ -1,0 +1,12 @@
+{
+  "name": "@mediaqc/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tauri build --no-bundle -- --locked",
+    "info": "tauri info"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4"
+  }
+}
