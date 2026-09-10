@@ -1,0 +1,45 @@
+{
+  "name": "mediaqc",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.6.2",
+  "engines": {
+    "node": ">=24.12.0 <25",
+    "npm": ">=11.6.2 <12"
+  },
+  "workspaces": [
+    "apps/frontend",
+    "apps/desktop"
+  ],
+  "scripts": {
+    "format": "prettier --config config/prettier.json --write .",
+    "format:check": "prettier --config config/prettier.json --check .",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "npm run typecheck --workspace @mediaqc/frontend",
+    "test": "npm run test:baseline && npm run test:frontend",
+    "test:baseline": "node --test tests/repository.test.mjs",
+    "test:frontend": "npm test --workspace @mediaqc/frontend",
+    "build": "npm run build --workspace @mediaqc/frontend",
+    "python:format:check": "uv run --locked ruff format --check .",
+    "python:lint": "uv run --locked ruff check .",
+    "python:typecheck": "uv run --locked mypy",
+    "python:test": "uv run --locked pytest",
+    "rust:format:check": "cargo fmt --all --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check",
+    "rust:check": "cargo check --locked --all-targets --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "rust:lint": "cargo clippy --locked --all-targets --manifest-path apps/desktop/src-tauri/Cargo.toml -- -D warnings",
+    "rust:test": "cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "desktop:build": "npm run build --workspace @mediaqc/desktop",
+    "desktop:start": "npm run build && cargo run --locked --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "check": "node tools/check.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.10.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.6",
+    "globals": "17.12.0",
+    "prettier": "3.9.6",
+    "typescript-eslint": "8.70.0"
+  }
+}

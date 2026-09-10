@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mediaqc-engine"
+version = "0.0.0"
+description = "MediaQC local engine package; Phase 0 foundation only."
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "mypy==1.19.1",
+    "pytest==9.0.2",
+    "ruff==0.15.0",
+]
+
+[tool.uv]
+required-version = "==0.12.12"
+
+[tool.hatch.build.targets.wheel]
+packages = ["engine/src/mediaqc_engine"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["engine/src"]
+extend-exclude = [".tools", ".cache", "apps/desktop/src-tauri/target"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["engine/src", "engine/tests"]
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["engine/tests"]
+addopts = "--strict-config --strict-markers --import-mode=importlib -ra"
+filterwarnings = ["error"]

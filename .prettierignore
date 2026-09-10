@@ -1,0 +1,29 @@
+# The authoritative specification package is intentionally unchanged.
+AGENTS.md
+MASTER_SPEC.md
+README.md
+SPEC_MANIFEST.json
+specs/
+
+# Other formatters own these files.
+**/*.py
+**/*.toml
+**/*.rs
+**/*.lock
+package-lock.json
+**/py.typed
+**/.gitkeep
+
+# Generated/local files
+.cache/
+.tools/
+.venv/
+**/node_modules/
+**/dist/
+**/target/
+**/gen/
+**/__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage/
