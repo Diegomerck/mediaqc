@@ -29,7 +29,9 @@
             "allow-engine-start",
             "allow-engine-ping",
             "allow-engine-stop",
-            "allow-engine-status"
+            "allow-engine-status",
+            "allow-engine-request",
+            "allow-pick-path"
           ]
         }
       ]

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ProjectView from './ProjectView';
 import {
   engine,
   engineError,
@@ -80,8 +81,9 @@ export default function App() {
       <header>
         <p className="eyebrow">LOCAL MEDIA QUALITY CONTROL</p>
         <h1>MediaQC</h1>
-        <p className="muted">Desktop connection · Phase 1</p>
+        <p className="muted">Local projects and media inspection · Phase 2</p>
       </header>
+      {phase === 'ready' && <ProjectView key={status?.pid} />}
       <section
         className="panel"
         aria-labelledby="engine-heading"
@@ -91,7 +93,9 @@ export default function App() {
           <h2 id="engine-heading">Engine diagnostics</h2>
           <span className={`badge ${phase}`}>Engine: {phase}</span>
         </div>
-        <p>Check the bundled local engine before media workflows are added.</p>
+        <p>
+          Start the bundled local engine to open projects and inspect media.
+        </p>
         <div className="actions">
           <button
             disabled={working || phase === 'ready' || phase === 'connecting'}
@@ -155,16 +159,20 @@ export default function App() {
             <dt>Schema contract version</dt>
             <dd>
               {capabilities?.schema_version ?? '—'}{' '}
-              <span className="muted">(persistence not implemented)</span>
+              <span className="muted">(SQLite project schema)</span>
             </dd>
           </div>
           <div>
             <dt>FFmpeg / ffprobe</dt>
-            <dd>{capabilities ? 'Unavailable in Phase 1' : '—'}</dd>
+            <dd>
+              {capabilities
+                ? `${capabilities.ffmpeg.version ?? 'Unavailable'} / ${capabilities.ffprobe.version ?? 'Unavailable'}`
+                : '—'}
+            </dd>
           </div>
           <div>
             <dt>Detectors / local AI</dt>
-            <dd>{capabilities ? 'Unavailable in Phase 1' : '—'}</dd>
+            <dd>{capabilities ? 'Unavailable in Phase 2' : '—'}</dd>
           </div>
           <div>
             <dt>Engine process</dt>

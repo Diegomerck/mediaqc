@@ -87,8 +87,10 @@ pub fn response(message: Message, id: &str) -> Result<Value, Failure> {
         return match (ok, result, error) {
             (true, Some(result), None) => Ok(Value::Object(result)),
             (false, None, Some(error)) => {
-                let _ = error.details;
-                Err(Failure::new(&error.code, &error.message))
+                let mut failure = Failure::new(&error.code, &error.message);
+                failure.details = Value::Object(error.details);
+                failure.recoverable = true;
+                Err(failure)
             }
             _ => Err(Failure::new(
                 "ENGINE_PROTOCOL_ERROR",

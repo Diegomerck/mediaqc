@@ -5,6 +5,8 @@ fn main() {
             "engine_ping",
             "engine_stop",
             "engine_status",
+            "engine_request",
+            "pick_path",
         ]),
     ))
     .expect("failed to build Tauri resources and command permissions");

@@ -3,6 +3,7 @@
 import sys
 
 from mediaqc_engine import __version__
+from mediaqc_engine.media.tools import MediaTools
 
 PROTOCOL_VERSION = "1.0"
 
@@ -13,8 +14,8 @@ def capabilities() -> dict[str, object]:
         "protocol_version": PROTOCOL_VERSION,
         "schema_version": 1,
         "platform": "windows" if sys.platform == "win32" else sys.platform,
-        "ffmpeg": {"available": False, "version": None},
-        "ffprobe": {"available": False, "version": None},
+        "ffmpeg": MediaTools().capability("ffmpeg"),
+        "ffprobe": MediaTools().capability("ffprobe"),
         "ai": {"local_available": False, "provider": None},
         "detectors": [],
     }

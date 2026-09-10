@@ -37,6 +37,38 @@ fn engine_status(controller: State<'_, Controller>) -> Snapshot {
     controller.snapshot()
 }
 
+#[tauri::command]
+async fn engine_request(
+    controller: State<'_, Controller>,
+    method: String,
+    params: Value,
+) -> Result<Value, Failure> {
+    let controller = controller.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || controller.request(method, params))
+        .await
+        .map_err(|error| Failure::new("ENGINE_CONTROLLER_ERROR", &error.to_string()))?
+}
+
+#[tauri::command]
+async fn pick_path(kind: String) -> Result<Option<String>, Failure> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let dialog = rfd::FileDialog::new();
+        let selected = match kind.as_str() {
+            "directory" => dialog
+                .set_title("Choose an empty project directory")
+                .pick_folder(),
+            "project" => dialog
+                .add_filter("MediaQC project", &["sqlite"])
+                .pick_file(),
+            "media" => dialog.set_title("Select local source media").pick_file(),
+            _ => return Err(Failure::new("INVALID_REQUEST", "Unknown file picker kind")),
+        };
+        Ok(selected.map(|path| path.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|error| Failure::new("DESKTOP_DIALOG_FAILED", &error.to_string()))?
+}
+
 fn main() {
     let exiting = Arc::new(AtomicBool::new(false));
     let app = tauri::Builder::default()
@@ -52,7 +84,9 @@ fn main() {
             engine_start,
             engine_ping,
             engine_stop,
-            engine_status
+            engine_status,
+            engine_request,
+            pick_path
         ])
         .build(tauri::generate_context!())
         .expect("failed to build the MediaQC desktop shell");

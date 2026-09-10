@@ -1,10 +1,15 @@
-"""Strict protocol framing and Phase 1 dispatch, independent of the desktop UI."""
+"""Strict protocol framing and dispatch, independent of the desktop UI."""
 
 import json
 import logging
+import queue
+import threading
+from collections.abc import Iterator
 from typing import BinaryIO
 from uuid import UUID
 
+from mediaqc_engine.app.errors import AppError
+from mediaqc_engine.app.projects import METHODS, Projects
 from mediaqc_engine.app.system import PROTOCOL_VERSION, capabilities
 
 LOG = logging.getLogger(__name__)
@@ -35,7 +40,9 @@ def unique_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
-def handle_line(line: bytes) -> tuple[dict[str, object] | None, bool]:
+def handle_line(
+    line: bytes, projects: Projects | None = None
+) -> tuple[dict[str, object] | None, bool]:
     """Uncorrelatable input is logged, never assigned a fabricated request ID."""
     try:
         request = json.loads(
@@ -70,20 +77,36 @@ def handle_line(line: bytes) -> tuple[dict[str, object] | None, bool]:
             request_id, "PROTOCOL_VERSION_UNSUPPORTED", "Expected protocol version 1.0"
         ), False
     method = request["method"]
-    if method not in {"system.ping", "system.capabilities", "system.shutdown"}:
+    if (
+        method
+        not in {"system.ping", "system.capabilities", "system.shutdown"} | METHODS
+    ):
         return error(request_id, "METHOD_NOT_FOUND", "Method is not implemented"), False
-    if request["params"]:
+    if method not in METHODS and request["params"]:
         return error(
             request_id, "INVALID_REQUEST", "System params must be empty"
         ), False
     try:
-        result = (
-            capabilities()
-            if method == "system.capabilities"
-            else {"pong": True}
-            if method == "system.ping"
-            else {}
-        )
+        if method in METHODS:
+            if projects is None:
+                raise AppError("PROJECT_NOT_FOUND", "No project session is available")
+            result = projects.dispatch(method, request["params"])
+        else:
+            result = (
+                capabilities()
+                if method == "system.capabilities"
+                else {"pong": True}
+                if method == "system.ping"
+                else {}
+            )
+    except AppError as failure:
+        response = error(request_id, failure.code, failure.message)
+        response["error"] = {
+            "code": failure.code,
+            "message": failure.message,
+            "details": failure.details,
+        }
+        return response, False
     except Exception:
         # Do not include request content or media paths in diagnostics.
         LOG.error("ENGINE_INTERNAL_ERROR: system service failed")
@@ -110,6 +133,14 @@ def write_message(output: BinaryIO, message: dict[str, object]) -> None:
 
 
 def serve(source: BinaryIO, output: BinaryIO) -> None:
+    projects = Projects()
+    try:
+        serve_session(source, output, projects)
+    finally:
+        projects.close()
+
+
+def serve_session(source: BinaryIO, output: BinaryIO, projects: Projects) -> None:
     write_message(
         output,
         {
@@ -119,19 +150,51 @@ def serve(source: BinaryIO, output: BinaryIO) -> None:
             "data": {},
         },
     )
-    while line := source.readline(MAX_LINE_BYTES + 1):
-        if len(line) > MAX_LINE_BYTES:
-            LOG.warning("INVALID_REQUEST: protocol line exceeds transport limit")
-            while not line.endswith(b"\n"):
-                line = source.readline(MAX_LINE_BYTES + 1)
-                if not line:
-                    return
-            continue
+    for line in incoming(source, projects):
         if not line.endswith(b"\n"):
             LOG.warning("INVALID_REQUEST: unterminated protocol line at EOF")
             return
-        response, shutdown = handle_line(line)
+        response, shutdown = handle_line(line, projects)
         if response is not None:
             write_message(output, response)
         if shutdown:
             return
+
+
+def incoming(source: BinaryIO, projects: Projects) -> Iterator[bytes]:
+    """Read shutdown while a probe is active, without introducing analysis jobs."""
+    lines: queue.Queue[bytes | None] = queue.Queue(maxsize=64)
+
+    def reader() -> None:
+        stopping = False
+        try:
+            while line := source.readline(MAX_LINE_BYTES + 1):
+                if len(line) > MAX_LINE_BYTES:
+                    LOG.warning(
+                        "INVALID_REQUEST: protocol line exceeds transport limit"
+                    )
+                    while line and not line.endswith(b"\n"):
+                        line = source.readline(MAX_LINE_BYTES + 1)
+                    continue
+                try:
+                    value = json.loads(line)
+                    if (
+                        isinstance(value, dict)
+                        and value.get("method") == "system.shutdown"
+                    ):
+                        _, stopping = handle_line(line)
+                except (ValueError, RecursionError):
+                    pass
+                if stopping and projects.tools.active.is_set():
+                    projects.tools.cancelled.set()
+                lines.put(line)
+                if stopping:
+                    break
+        finally:
+            if not stopping and projects.tools.active.is_set():
+                projects.tools.cancelled.set()
+            lines.put(None)
+
+    threading.Thread(target=reader, daemon=True).start()
+    while (line := lines.get()) is not None:
+        yield line

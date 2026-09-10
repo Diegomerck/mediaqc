@@ -37,6 +37,10 @@ write_message(
 for line in sys.stdin.buffer:
     request = json.loads(line)
     method = request["method"]
+    if method == "media.inspect" and mode == "inspection_timeout":
+        sys.stderr.write("inspection-active\n")
+        sys.stderr.flush()
+        time.sleep(30)
     if mode == "stderr":
         sys.stderr.write("diagnostic noise " * 10000 + "\n")
         sys.stderr.flush()

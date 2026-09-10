@@ -1,5 +1,6 @@
 """Build the pinned one-folder engine inside the repository (developer tooling)."""
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +17,8 @@ def main() -> None:
             "--noconfirm",
             "--onedir",
             "--console",
+            "--collect-data",
+            "mediaqc_engine",
             "--name",
             "mediaqc-engine",
             "--distpath",
@@ -30,6 +33,12 @@ def main() -> None:
         ],
         cwd=ROOT,
         check=True,
+    )
+    source = ROOT / "engine/vendor/ffmpeg"
+    if not (source / "provenance.json").is_file():
+        raise RuntimeError("Run the developer media:prepare command before building")
+    shutil.copytree(
+        source, ROOT / "engine/dist/mediaqc-engine/ffmpeg", dirs_exist_ok=True
     )
 
 

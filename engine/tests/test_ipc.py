@@ -62,7 +62,7 @@ def test_exact_ready_ping_and_shutdown() -> None:
 @pytest.mark.parametrize(
     ("changes", "code"),
     [
-        ({"method": "project.create"}, "METHOD_NOT_FOUND"),
+        ({"method": "analysis.start"}, "METHOD_NOT_FOUND"),
         ({"method": "system.version"}, "METHOD_NOT_FOUND"),
         ({"protocol_version": "2.0"}, "PROTOCOL_VERSION_UNSUPPORTED"),
         ({"type": "event"}, "INVALID_REQUEST"),
@@ -99,7 +99,11 @@ def test_uncorrelatable_input_does_not_fabricate_id(malformed: bytes) -> None:
 
 
 def test_capabilities_are_truthful_and_versioned() -> None:
-    response, _ = handle_line(line(request("system.capabilities")))
+    with patch(
+        "mediaqc_engine.app.system.MediaTools.capability",
+        return_value={"available": False, "version": None},
+    ):
+        response, _ = handle_line(line(request("system.capabilities")))
     assert response is not None
     assert response["result"] == {
         "engine_version": "0.0.0",

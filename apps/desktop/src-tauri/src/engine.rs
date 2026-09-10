@@ -5,7 +5,11 @@ use std::{
     io::{BufRead, BufReader, Read, Write},
     path::PathBuf,
     process::{Child, ChildStdin, Command, Stdio},
-    sync::{Arc, Mutex, mpsc},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -23,6 +27,9 @@ use crate::{
 pub struct Failure {
     pub code: String,
     pub message: String,
+    pub details: Value,
+    #[serde(skip)]
+    pub recoverable: bool,
 }
 
 impl Failure {
@@ -30,6 +37,8 @@ impl Failure {
         Self {
             code: code.into(),
             message: message.into(),
+            details: json!({}),
+            recoverable: false,
         }
     }
     fn io(error: std::io::Error) -> Self {
@@ -73,6 +82,7 @@ enum Action {
     Ping,
     Stop,
     Quit,
+    Request { method: String, params: Value },
 }
 struct Call {
     action: Action,
@@ -83,6 +93,7 @@ struct Call {
 pub struct Controller {
     sender: mpsc::Sender<Call>,
     snapshot: Arc<Mutex<Snapshot>>,
+    interrupt: Arc<AtomicBool>,
 }
 
 impl Controller {
@@ -97,8 +108,14 @@ impl Controller {
             desktop_version: env!("CARGO_PKG_VERSION").into(),
         }));
         let actor_snapshot = snapshot.clone();
-        thread::spawn(move || run_actor(config, receiver, actor_snapshot));
-        Self { sender, snapshot }
+        let interrupt = Arc::new(AtomicBool::new(false));
+        let actor_interrupt = interrupt.clone();
+        thread::spawn(move || run_actor(config, receiver, actor_snapshot, actor_interrupt));
+        Self {
+            sender,
+            snapshot,
+            interrupt,
+        }
     }
 
     pub fn snapshot(&self) -> Snapshot {
@@ -109,6 +126,9 @@ impl Controller {
     }
 
     fn call(&self, action: Action) -> Result<Value, Failure> {
+        if matches!(action, Action::Stop | Action::Quit) {
+            self.interrupt.store(true, Ordering::SeqCst);
+        }
         let (reply, receiver) = mpsc::channel();
         self.sender.send(Call { action, reply }).map_err(|_| {
             Failure::new(
@@ -136,6 +156,20 @@ impl Controller {
     pub fn quit(&self) -> Result<Value, Failure> {
         self.call(Action::Quit)
     }
+
+    pub fn request(&self, method: String, params: Value) -> Result<Value, Failure> {
+        if !matches!(
+            method.as_str(),
+            "project.create" | "project.open" | "project.get" | "media.inspect"
+        ) || !params.is_object()
+        {
+            return Err(Failure::new(
+                "INVALID_REQUEST",
+                "Unsupported desktop request",
+            ));
+        }
+        self.call(Action::Request { method, params })
+    }
 }
 
 fn update(
@@ -151,19 +185,36 @@ fn update(
     state.error = error;
 }
 
-fn run_actor(config: Config, receiver: mpsc::Receiver<Call>, snapshot: Arc<Mutex<Snapshot>>) {
+fn run_actor(
+    config: Config,
+    receiver: mpsc::Receiver<Call>,
+    snapshot: Arc<Mutex<Snapshot>>,
+    interrupt: Arc<AtomicBool>,
+) {
     let mut session: Option<Session> = None;
     loop {
         match receiver.recv_timeout(Duration::from_millis(50)) {
             Ok(call) => {
                 let quit = matches!(call.action, Action::Quit);
                 let result = match call.action {
+                    Action::Request { method, params } => match session.as_mut() {
+                        Some(active) => active.request_params(
+                            &method,
+                            params,
+                            Instant::now() + Duration::from_secs(35),
+                        ),
+                        None => Err(Failure::new(
+                            "ENGINE_NOT_RUNNING",
+                            "Start the local engine first",
+                        )),
+                    },
                     Action::Start => {
                         if let Some(active) = session.as_ref() {
                             Ok(active.capabilities.clone())
                         } else {
                             update(&snapshot, "starting", None, None);
-                            match Session::start(&config) {
+                            interrupt.store(false, Ordering::SeqCst);
+                            match Session::start(&config, interrupt.clone()) {
                                 Ok(started) => {
                                     let capabilities = started.capabilities.clone();
                                     session = Some(started);
@@ -203,7 +254,9 @@ fn run_actor(config: Config, receiver: mpsc::Receiver<Call>, snapshot: Arc<Mutex
                         result
                     }
                 };
-                if let Err(error) = &result {
+                if let Err(error) = &result
+                    && !error.recoverable
+                {
                     // Drop terminates and reaps a failed session before offering restart.
                     session.take();
                     update(&snapshot, "error", None, Some(error.clone()));
@@ -235,12 +288,13 @@ struct Session {
     stdin: Option<ChildStdin>,
     messages: Option<mpsc::Receiver<Result<Message, Failure>>>,
     readers: Vec<thread::JoinHandle<()>>,
-    _ownership: Ownership,
+    ownership: Option<Ownership>,
     capabilities: Value,
+    interrupt: Arc<AtomicBool>,
 }
 
 impl Session {
-    fn start(config: &Config) -> Result<Self, Failure> {
+    fn start(config: &Config, interrupt: Arc<AtomicBool>) -> Result<Self, Failure> {
         let log = open_log(&config.log_path).map_err(Failure::io)?;
         let ownership = Ownership::new().map_err(Failure::io)?;
         let mut command = Command::new(&config.executable);
@@ -295,11 +349,12 @@ impl Session {
             }
         });
         let mut session = Self {
+            interrupt,
             child,
             stdin,
             messages: Some(messages),
             readers: vec![stdout_reader, stderr_reader],
-            _ownership: ownership,
+            ownership: Some(ownership),
             capabilities: Value::Null,
         };
         match session.receive(Instant::now() + config.timeout)? {
@@ -335,9 +390,19 @@ impl Session {
     }
 
     fn request(&mut self, method: &str, deadline: Instant) -> Result<Value, Failure> {
+        self.request_params(method, json!({}), deadline)
+    }
+
+    fn request_params(
+        &mut self,
+        method: &str,
+        params: Value,
+        deadline: Instant,
+    ) -> Result<Value, Failure> {
         let id = Uuid::new_v4().to_string();
-        let mut bytes =
-            serde_json::to_vec(&protocol::request(method, &id)).expect("serializable request");
+        let mut request = protocol::request(method, &id);
+        request["params"] = params;
+        let mut bytes = serde_json::to_vec(&request).expect("serializable request");
         bytes.push(b'\n');
         let stdin = self
             .stdin
@@ -347,7 +412,51 @@ impl Session {
             .write_all(&bytes)
             .and_then(|()| stdin.flush())
             .map_err(Failure::io)?;
-        protocol::response(self.receive(deadline)?, &id)
+        if method != "media.inspect" {
+            return protocol::response(self.receive(deadline)?, &id);
+        }
+        loop {
+            if self.interrupt.load(Ordering::SeqCst) {
+                return self.interrupt_inspection();
+            }
+            let tick = (Instant::now() + Duration::from_millis(50)).min(deadline);
+            match self.receive(tick) {
+                Err(error) if error.code == "ENGINE_TIMEOUT" && Instant::now() < deadline => {
+                    continue;
+                }
+                result => return protocol::response(result?, &id),
+            }
+        }
+    }
+
+    fn interrupt_inspection(&mut self) -> Result<Value, Failure> {
+        let id = Uuid::new_v4().to_string();
+        let mut bytes = serde_json::to_vec(&protocol::request("system.shutdown", &id))
+            .expect("shutdown request");
+        bytes.push(b'\n');
+        if let Some(input) = self.stdin.as_mut() {
+            let _ = input.write_all(&bytes);
+            let _ = input.flush();
+        }
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            match self.receive(deadline) {
+                Ok(Message::Response { request_id, .. }) if request_id == id => break,
+                Ok(_) => continue,
+                Err(_) => break,
+            }
+        }
+        self.stdin.take();
+        while Instant::now() < deadline {
+            if self.child.try_wait().map_err(Failure::io)?.is_some() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        Err(Failure::new(
+            "ENGINE_INSPECTION_INTERRUPTED",
+            "Inspection stopped because the engine is shutting down",
+        ))
     }
 
     fn check_health(&mut self) -> Result<(), Failure> {
@@ -399,6 +508,7 @@ impl Drop for Session {
         self.stdin.take();
         let _ = self.child.kill();
         let _ = self.child.wait();
+        self.ownership.take();
         self.messages.take();
         for reader in self.readers.drain(..) {
             let _ = reader.join();
