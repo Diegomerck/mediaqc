@@ -1,7 +1,7 @@
 # MediaQC development setup
 
-The active implementation is Phase 0 of `MASTER_SPEC.md`: repository and quality
-gates. Read `MASTER_SPEC.md`, `AGENTS.md`, `README.md`, and all Markdown files in
+The active implementation is Phase 1 of `MASTER_SPEC.md`: desktop shell and engine
+IPC. Phase 0 quality gates are preserved. Read `MASTER_SPEC.md`, `AGENTS.md`, `README.md`, and relevant Markdown files in
 `specs/` before changing application code. Their precedence is authoritative.
 The original specification package is retained unchanged.
 
@@ -62,7 +62,9 @@ running individual native checks because Tauri embeds its `dist` directory.
 | Python formatting                        | `uv run --locked ruff format --check .` |
 | Python lint                              | `uv run --locked ruff check .`          |
 | Strict Python types                      | `uv run --locked mypy`                  |
-| Python package tests                     | `uv run --locked pytest`                |
+| Python package and IPC tests             | `uv run --locked pytest`                |
+| Standalone engine build                  | `npm run engine:build`                  |
+| Packaged engine / 10,000-ping smoke      | `npm run engine:smoke`                  |
 | Rust formatting                          | `npm run rust:format:check`             |
 | Repository baseline tests                | `npm run test:baseline`                 |
 | Frontend DOM tests                       | `npm run test:frontend`                 |
@@ -72,6 +74,7 @@ running individual native checks because Tauri embeds its `dist` directory.
 | Rust Clippy, zero warnings               | `npm run rust:lint`                     |
 | Rust test target                         | `npm run rust:test`                     |
 | Tauri executable, without installer      | `npm run desktop:build`                 |
+| Native IPC / abrupt parent-death smoke   | `npm run native:smoke`                  |
 
 The Rust aliases expand to:
 
@@ -83,8 +86,12 @@ cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
 The desktop build runs `tauri build --no-bundle -- --locked` from `apps/desktop`.
-Its configured build hook builds the frontend first. Installer creation, signing,
-sidecars and engine packaging belong to later phases.
+Its configured build hook packages the Python engine and builds the frontend first.
+The PyInstaller 6.19.0 one-folder runtime is copied to `resources/engine/` beside
+the native executable. Keep that entire folder with the desktop executable.
+Installer creation, signing and media-tool distribution remain in Phase 9.
+For individual Rust commands on a fresh checkout, run `npm run desktop:prepare`
+first so embedded frontend assets and engine resources exist.
 
 Apply formatting intentionally:
 
@@ -98,35 +105,44 @@ Prettier excludes the authoritative specification package and generated files;
 Ruff owns Python formatting and rustfmt owns Rust. Type checks are strict without
 `skipLibCheck`, ignored imports or test-warning suppression.
 
-## Empty desktop window
+## Desktop connection diagnostics
 
 ```powershell
 npm run desktop:start
 ```
 
-This builds the static frontend and runs Cargo with the `custom-protocol` feature
-enabled by default. Tauri embeds the assets and opens an empty window containing
-the MediaQC heading. There is no `devUrl`, HTTP server, hot-reload server, engine
-process, application command handler or Tauri plugin. After editing the frontend,
-close the window and rerun the command.
+This packages the engine, builds the static frontend, and runs Cargo with the
+`custom-protocol` feature enabled. Click **Start engine**, then **Send system.ping**.
+The UI shows the negotiated versions, engine state, process ID and diagnostic log
+path. **Stop engine** requests graceful shutdown. Closing the app also shuts down
+its engine. Unexpected exit shows an error code and **Restart engine**.
+
+There is no `devUrl`, HTTP server or hot-reload server. The CSP's `ipc:` and
+`http://ipc.localhost` entries are Tauri's in-process command transport, not a
+listening HTTP backend. Only four explicitly permitted commands are exposed to
+the main window; the frontend cannot choose an executable or shell command.
+After editing the frontend, close the window and rerun the command.
 
 ## Repository map
 
 ```text
 apps/
-  desktop/src-tauri/       Minimal native executable and Tauri configuration
-  frontend/src/           Static React/TypeScript shell and utility CSS
-  frontend/tests/         Vitest/Testing Library DOM smoke test
+  desktop/src-tauri/       Native controller, Windows ownership, IPC and Tauri configuration
+  frontend/src/           React/TypeScript engine diagnostics shell
+  frontend/tests/         Vitest/Testing Library lifecycle and error UX tests
 engine/
-  src/mediaqc_engine/     Importable, typed Python namespace only
-  tests/                  Installed-package and silent-import smoke tests
+  src/mediaqc_engine/     Typed system services and JSON-line protocol server
+  tests/                  Package, IPC, framing and subprocess tests
 tests/
   repository.test.mjs     Specification, lockfile and shell boundary checks
   fixtures/manifests/     Reserved; no fixture generation in Phase 0
   fixtures/generated/    Ignored generated media directory
   golden/                 Reserved for later regression corpus
 tools/
-  check.mjs               CI-capable quality-gate runner
+  check.mjs               CI-capable quality-gate runner (all Phase 0 gates retained)
+  build_engine.py         Pinned standalone engine build
+  smoke_engine.py         Packaged runtime and sequential protocol smoke
+  smoke_lifecycle.py      Production native controller and parent-death smoke
   generate_test_media/    Reserved; no FFmpeg integration yet
 config/                   Shared formatter configuration
 docs/                     Developer setup and Phase 0 implementation notes
@@ -167,13 +183,11 @@ local toolchains, generated binaries or source media. No commit is part of setup
 
 ## Phase discipline
 
-Baseline tests demonstrate that the development harness works, not that media QC
-works. The native crate has no application logic to unit-test yet; `cargo test`
-still checks compilation of its test target. Add meaningful Rust tests when native
-behavior is introduced. Detector regression fixtures, timestamp tolerances,
-clean-file controls, IPC tests, database tests and packaging validation remain
-mandatory in their corresponding later phases.
+Tests demonstrate the desktop connection and process lifecycle, not media QC.
+Schema version 1 is protocol metadata only; no database is opened. FFmpeg,
+ffprobe and AI report unavailable, and the detector registry is empty. Engine
+version remains the repository's development version `0.0.0`.
 
-No Phase 1+ functionality is implemented here. No cloud service, account,
+No Phase 2+ functionality is implemented here. No cloud service, account,
 telemetry, media upload, Redis, PostgreSQL, Celery, Docker runtime, local backend,
 SQLite behavior, media dependency or optional AI package is introduced.

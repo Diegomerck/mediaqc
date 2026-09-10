@@ -14,10 +14,13 @@ const gates = [
   'test:baseline',
   'test:frontend',
   'build',
+  'engine:build',
+  'engine:smoke',
   'rust:check',
   'rust:lint',
   'rust:test',
   'desktop:build',
+  'native:smoke',
 ];
 
 const npmCli = process.env.npm_execpath;
