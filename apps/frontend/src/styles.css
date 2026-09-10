@@ -9,6 +9,25 @@ body {
   margin: 0;
 }
 
+input {
+  display: block;
+  font: inherit;
+  padding: 10px;
+  margin: 10px 0 16px;
+  border: 1px solid #8b98a9;
+  border-radius: 6px;
+  background: #17191d;
+  color: #fff;
+}
+.path {
+  overflow-wrap: anywhere;
+}
+.media-card {
+  border-top: 1px solid #434c59;
+  margin-top: 24px;
+  padding-top: 12px;
+}
+
 .shell {
   max-width: 920px;
   padding: 48px 32px;

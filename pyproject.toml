@@ -35,7 +35,7 @@ select = ["E", "F", "I", "B", "UP", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["engine/src", "engine/tests", "engine/entrypoint.py", "tools/build_engine.py", "tools/smoke_engine.py", "tools/smoke_lifecycle.py", "apps/desktop/src-tauri/tests/fixtures/engine_stub.py"]
+files = ["engine/src", "engine/tests", "engine/entrypoint.py", "tools/build_engine.py", "tools/smoke_engine.py", "tools/smoke_lifecycle.py", "tools/prepare_media_tools.py", "tools/smoke_phase2.py", "apps/desktop/src-tauri/tests/fixtures/engine_stub.py"]
 warn_unreachable = true
 
 [tool.pytest.ini_options]

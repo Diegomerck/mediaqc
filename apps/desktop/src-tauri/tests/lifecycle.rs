@@ -121,6 +121,48 @@ fn unresponsive_shutdown_is_forced_and_reaped() {
     controller.quit().unwrap();
 }
 
+#[test]
+fn application_errors_preserve_engine_session() {
+    let controller = Controller::new(config("normal"));
+    controller.start().unwrap();
+    let pid = controller.snapshot().pid;
+    let failure = controller
+        .request("project.get".into(), json!({}))
+        .unwrap_err();
+    assert_eq!(failure.code, "PROJECT_NOT_FOUND");
+    assert!(failure.recoverable);
+    assert_eq!(controller.snapshot().pid, pid);
+    assert_eq!(controller.ping().unwrap(), json!({"pong":true}));
+    controller.quit().unwrap();
+}
+
+#[test]
+fn stopping_interrupts_an_active_inspection() {
+    let setup = config("inspection_timeout");
+    let log = setup.log_path.clone();
+    let controller = Controller::new(setup);
+    controller.start().unwrap();
+    let inspecting = controller.clone();
+    let worker = thread::spawn(move || inspecting.request("media.inspect".into(), json!({})));
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while !std::fs::read_to_string(&log)
+        .unwrap_or_default()
+        .contains("inspection-active")
+    {
+        assert!(Instant::now() < deadline);
+        thread::sleep(Duration::from_millis(20));
+    }
+    let start = Instant::now();
+    controller.stop().unwrap();
+    assert!(start.elapsed() < Duration::from_secs(4));
+    assert_eq!(
+        worker.join().unwrap().unwrap_err().code,
+        "ENGINE_INSPECTION_INTERRUPTED"
+    );
+    assert_eq!(controller.snapshot().phase, "stopped");
+    controller.quit().unwrap();
+}
+
 #[cfg(windows)]
 fn terminate(pid: u32) {
     use windows_sys::Win32::{

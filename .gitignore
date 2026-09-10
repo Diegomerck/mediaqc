@@ -3,6 +3,7 @@ node_modules/
 .venv/
 .tools/
 .cache/
+engine/vendor/
 
 # Build and test outputs
 dist/

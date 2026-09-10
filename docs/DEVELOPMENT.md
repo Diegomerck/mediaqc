@@ -1,7 +1,7 @@
 # MediaQC development setup
 
-The active implementation is Phase 1 of `MASTER_SPEC.md`: desktop shell and engine
-IPC. Phase 0 quality gates are preserved. Read `MASTER_SPEC.md`, `AGENTS.md`, `README.md`, and relevant Markdown files in
+The active implementation is Phase 2 of `MASTER_SPEC.md`: projects and media
+inspection. Phase 0 and Phase 1 quality gates are preserved. Read `MASTER_SPEC.md`, `AGENTS.md`, `README.md`, and relevant Markdown files in
 `specs/` before changing application code. Their precedence is authoritative.
 The original specification package is retained unchanged.
 
@@ -36,6 +36,7 @@ npm ci
 uv sync --locked
 rustup show
 cargo fetch --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+npm run media:prepare
 ```
 
 `uv sync` creates `.venv` and installs the engine as an editable package. No
@@ -89,7 +90,9 @@ The desktop build runs `tauri build --no-bundle -- --locked` from `apps/desktop`
 Its configured build hook packages the Python engine and builds the frontend first.
 The PyInstaller 6.19.0 one-folder runtime is copied to `resources/engine/` beside
 the native executable. Keep that entire folder with the desktop executable.
-Installer creation, signing and media-tool distribution remain in Phase 9.
+FFmpeg and ffprobe are included in that runtime from the checksum-pinned developer
+bootstrap. Installer creation and signing remain in Phase 9. See [Phase 2](PHASE_2.md)
+for provenance and distribution limitations.
 For individual Rust commands on a fresh checkout, run `npm run desktop:prepare`
 first so embedded frontend assets and engine resources exist.
 
@@ -119,7 +122,7 @@ its engine. Unexpected exit shows an error code and **Restart engine**.
 
 There is no `devUrl`, HTTP server or hot-reload server. The CSP's `ipc:` and
 `http://ipc.localhost` entries are Tauri's in-process command transport, not a
-listening HTTP backend. Only four explicitly permitted commands are exposed to
+listening HTTP backend. Only six explicitly permitted commands are exposed to
 the main window; the frontend cannot choose an executable or shell command.
 After editing the frontend, close the window and rerun the command.
 
@@ -128,10 +131,10 @@ After editing the frontend, close the window and rerun the command.
 ```text
 apps/
   desktop/src-tauri/       Native controller, Windows ownership, IPC and Tauri configuration
-  frontend/src/           React/TypeScript engine diagnostics shell
+  frontend/src/           React/TypeScript projects, inspection and diagnostics
   frontend/tests/         Vitest/Testing Library lifecycle and error UX tests
 engine/
-  src/mediaqc_engine/     Typed system services and JSON-line protocol server
+  src/mediaqc_engine/     System/project services, SQLite, probing and JSON-line IPC
   tests/                  Package, IPC, framing and subprocess tests
 tests/
   repository.test.mjs     Specification, lockfile and shell boundary checks
@@ -143,7 +146,8 @@ tools/
   build_engine.py         Pinned standalone engine build
   smoke_engine.py         Packaged runtime and sequential protocol smoke
   smoke_lifecycle.py      Production native controller and parent-death smoke
-  generate_test_media/    Reserved; no FFmpeg integration yet
+  prepare_media_tools.py Pinned developer bootstrap for bundled FFmpeg/ffprobe
+  smoke_phase2.py         Packaged inspection and project reopening smoke
 config/                   Shared formatter configuration
 docs/                     Developer setup and Phase 0 implementation notes
 specs/                    Unchanged authoritative specifications
@@ -183,11 +187,8 @@ local toolchains, generated binaries or source media. No commit is part of setup
 
 ## Phase discipline
 
-Tests demonstrate the desktop connection and process lifecycle, not media QC.
-Schema version 1 is protocol metadata only; no database is opened. FFmpeg,
-ffprobe and AI report unavailable, and the detector registry is empty. Engine
-version remains the repository's development version `0.0.0`.
-
-No Phase 2+ functionality is implemented here. No cloud service, account,
-telemetry, media upload, Redis, PostgreSQL, Celery, Docker runtime, local backend,
-SQLite behavior, media dependency or optional AI package is introduced.
+Tests demonstrate project persistence, read-only inspection and desktop process
+lifecycle. Schema version 1 uses the canonical migration; later-phase tables are
+reserved with no analysis services. FFmpeg/ffprobe capabilities reflect the bundled
+executables. AI is unavailable and the detector registry is empty. Engine version
+remains `0.0.0`. No Phase 3+ functionality is implemented.
