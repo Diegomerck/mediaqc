@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "identifier": "com.mediaqc.desktop",
   "build": {
-    "beforeBuildCommand": "npm run build --workspace @mediaqc/frontend",
+    "beforeBuildCommand": "npm run desktop:prepare --prefix ../..",
     "frontendDist": "../../frontend/dist"
   },
   "app": {
@@ -19,12 +19,25 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; frame-src 'none'",
-      "capabilities": []
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-src 'none'",
+      "capabilities": [
+        {
+          "identifier": "local-engine",
+          "description": "Only the main window can control the bundled Phase 1 engine.",
+          "windows": ["main"],
+          "permissions": [
+            "allow-engine-start",
+            "allow-engine-ping",
+            "allow-engine-stop",
+            "allow-engine-status"
+          ]
+        }
+      ]
     }
   },
   "bundle": {
     "active": false,
-    "icon": ["icons/icon.ico", "icons/icon.png"]
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "resources": { "../../../engine/dist/mediaqc-engine/": "resources/engine/" }
   }
 }

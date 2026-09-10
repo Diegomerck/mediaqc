@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mediaqc-engine"
 version = "0.0.0"
-description = "MediaQC local engine package; Phase 0 foundation only."
+description = "MediaQC offline local engine."
 requires-python = ">=3.12,<3.13"
 dependencies = []
 
@@ -13,6 +13,7 @@ dependencies = []
 dev = [
     "mypy==1.19.1",
     "pytest==9.0.2",
+    "pyinstaller==6.19.0",
     "ruff==0.15.0",
 ]
 
@@ -34,7 +35,7 @@ select = ["E", "F", "I", "B", "UP", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["engine/src", "engine/tests"]
+files = ["engine/src", "engine/tests", "engine/entrypoint.py", "tools/build_engine.py", "tools/smoke_engine.py", "tools/smoke_lifecycle.py", "apps/desktop/src-tauri/tests/fixtures/engine_stub.py"]
 warn_unreachable = true
 
 [tool.pytest.ini_options]

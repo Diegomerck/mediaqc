@@ -20,12 +20,32 @@ test('the complete authoritative specification package is present', () => {
   }
 });
 
-test('the desktop loads embedded assets with no server or sidecars', () => {
+test('the desktop embeds assets and restricts IPC to its local engine commands', () => {
   const config = readJson('apps/desktop/src-tauri/tauri.conf.json');
   assert.equal(config.build.devUrl, undefined);
   assert.equal(config.build.frontendDist, '../../frontend/dist');
-  assert.deepEqual(config.app.security.capabilities, []);
-  assert.match(config.app.security.csp, /connect-src 'none'/u);
+  assert.deepEqual(config.app.security.capabilities, [
+    {
+      identifier: 'local-engine',
+      description:
+        'Only the main window can control the bundled Phase 1 engine.',
+      windows: ['main'],
+      permissions: [
+        'allow-engine-start',
+        'allow-engine-ping',
+        'allow-engine-stop',
+        'allow-engine-status',
+      ],
+    },
+  ]);
+  assert.match(
+    config.app.security.csp,
+    /connect-src ipc: http:\/\/ipc\.localhost;/u,
+  );
+  assert.doesNotMatch(config.app.security.csp, /https:|\*/u);
+  assert.deepEqual(config.bundle.resources, {
+    '../../../engine/dist/mediaqc-engine/': 'resources/engine/',
+  });
   assert.equal(config.bundle.externalBin, undefined);
   assert.equal(config.bundle.active, false);
   for (const icon of config.bundle.icon) {

@@ -1,1 +1,3 @@
-"""Local QC engine namespace. Phase 0 defines no engine behavior."""
+"""Offline MediaQC engine. Importing the package has no side effects."""
+
+__version__ = "0.0.0"
