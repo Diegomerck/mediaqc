@@ -79,6 +79,8 @@ def transition(
     code: str | None = None,
     message: str | None = None,
 ) -> None:
+    from mediaqc_engine.db.findings import overall
+
     with db:
         db.execute("BEGIN IMMEDIATE")
         previous = str(fetch(db, identifier)["status"])
@@ -96,7 +98,7 @@ def transition(
                 message,
                 now(),
                 now() if status in TERMINAL else None,
-                "PASS" if status == "COMPLETED" else None,
+                overall(db, identifier) if status == "COMPLETED" else None,
                 identifier,
             ),
         )
@@ -125,6 +127,8 @@ def recover(db: sqlite3.Connection) -> None:
 
 
 def summary(db: sqlite3.Connection, identifier: str) -> dict[str, object]:
+    from mediaqc_engine.db.findings import counts, list_findings
+
     run = fetch(db, identifier)
     executions = [
         dict(row)
@@ -133,9 +137,24 @@ def summary(db: sqlite3.Connection, identifier: str) -> dict[str, object]:
             (identifier,),
         )
     ]
+    for execution in executions:
+        rows = db.execute(
+            "SELECT severity,COUNT(*) FROM findings WHERE detector_execution_id=? "
+            "AND disposition NOT IN ('IGNORED','FALSE_POSITIVE') GROUP BY severity",
+            (execution["id"],),
+        ).fetchall()
+        execution["finding_count"] = sum(row[1] for row in rows)
+        severities = {row[0] for row in rows}
+        execution["worst_severity"] = next(
+            (value for value in ("FAIL", "WARN", "INFO") if value in severities), None
+        )
     return {
         **run,
         "analysis_run_id": identifier,
         "detector_states": executions,
-        "summary": {"counts": {"INFO": 0, "WARN": 0, "FAIL": 0}, "qc_available": False},
+        "summary": {
+            "counts": counts(db, identifier),
+            "qc_available": any(item["status"] == "COMPLETED" for item in executions),
+        },
+        **list_findings(db, {"analysis_run_id": identifier}),
     }

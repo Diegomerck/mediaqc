@@ -177,6 +177,8 @@ impl Controller {
                 | "analysis.cancel"
                 | "analysis.retry"
                 | "analysis.get"
+                | "finding.list"
+                | "finding.get"
         ) || !params.is_object()
         {
             return Err(Failure::new(

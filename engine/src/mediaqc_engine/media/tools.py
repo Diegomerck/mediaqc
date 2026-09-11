@@ -6,7 +6,8 @@ import sys
 import tempfile
 import threading
 import time
-from collections.abc import Iterator
+from collections import deque
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -137,6 +138,74 @@ class MediaTools:
             return {"available": True, "version": text}
         except (AppError, IndexError):
             return {"available": False, "version": None}
+
+    def stream(
+        self, arguments: list[str], block_bytes: int = 65536
+    ) -> Generator[bytes, None, None]:
+        """Bounded decode pipe; own() reaps on cancellation, error or early close."""
+        from mediaqc_engine.jobs.cancellation import Cancelled
+
+        if self.cancelled.is_set():
+            raise Cancelled()
+        excerpt: deque[bytes] = deque(maxlen=8)
+        try:
+            with (
+                subprocess.Popen(
+                    [
+                        str(self.directory / "ffmpeg.exe"),
+                        "-nostdin",
+                        "-v",
+                        "error",
+                        *arguments,
+                    ],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    shell=False,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                    if sys.platform == "win32"
+                    else 0,
+                ) as child,
+                self.own(child),
+            ):
+                assert child.stdout is not None and child.stderr is not None
+                stderr = child.stderr
+
+                def drain() -> None:
+                    while chunk := stderr.read(512):
+                        excerpt.append(chunk)
+
+                reader = threading.Thread(target=drain, daemon=True)
+                reader.start()
+                try:
+                    while chunk := child.stdout.read(block_bytes):
+                        if self.cancelled.is_set():
+                            raise Cancelled()
+                        yield chunk
+                    child.wait()
+                    if self.cancelled.is_set():
+                        raise Cancelled()
+                    reader.join()
+                    if child.returncode:
+                        raise AppError(
+                            "MEDIA_UNSUPPORTED",
+                            "Audio decoding failed",
+                            {
+                                "exit_code": child.returncode,
+                                "stderr_excerpt": b"".join(excerpt).decode(
+                                    "utf-8", errors="replace"
+                                ),
+                            },
+                        )
+                finally:
+                    if child.poll() is None:
+                        child.kill()
+                    child.wait()
+                    reader.join()
+        except OSError as exc:
+            raise AppError(
+                "MEDIA_UNSUPPORTED", "Cannot launch bundled audio decoder"
+            ) from exc
 
     def probe(self, path: Path) -> dict[str, object]:
         raw = self.run(

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { jobs, type Profile, type Run } from './jobs';
 import { engineError, type EngineError } from './engine';
 import type { Project } from './projects';
+import AudioResults from './AudioResults';
 
 const terminal = (status: string) =>
   ['COMPLETED', 'FAILED', 'CANCELLED'].includes(status);
@@ -146,8 +147,8 @@ export default function AnalysisView({
     <section aria-labelledby="analysis-heading">
       <h3 id="analysis-heading">Analysis jobs</h3>
       <p>
-        Phase 3 validates job orchestration. QC detectors are not installed yet;
-        no media quality assessment is performed.
+        Run deterministic audio QC locally using the selected profile. Source
+        media remains read-only.
       </p>
       <label>
         Analysis media{' '}
@@ -244,6 +245,7 @@ export default function AnalysisView({
             {run.progress.media_duration_seconds ?? 'Unavailable'} seconds
           </p>
           <p>{run.progress.message}</p>
+          <p>Profile: {profileLabel(run.qc_profile_snapshot_json)}</p>
           {run.error_code && (
             <p role="alert">
               {run.error_code}: {run.error_message}
@@ -258,6 +260,7 @@ export default function AnalysisView({
           </ul>
         </div>
       )}
+      {run && terminal(run.status) && <AudioResults key={run.id} run={run} />}
       <details>
         <summary>Previous runs</summary>
         {history.map((item) => (

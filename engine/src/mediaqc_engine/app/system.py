@@ -3,6 +3,7 @@
 import sys
 
 from mediaqc_engine import __version__
+from mediaqc_engine.detectors.audio import registry
 from mediaqc_engine.media.tools import MediaTools
 
 PROTOCOL_VERSION = "1.0"
@@ -17,5 +18,13 @@ def capabilities() -> dict[str, object]:
         "ffmpeg": MediaTools().capability("ffmpeg"),
         "ffprobe": MediaTools().capability("ffprobe"),
         "ai": {"local_available": False, "provider": None},
-        "detectors": [],
+        "detectors": [
+            {
+                "id": detector.detector_id,
+                "version": detector.detector_version,
+                "media_types": ["audio"],
+                "requires_ai": False,
+            }
+            for detector in registry()
+        ],
     }

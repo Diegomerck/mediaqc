@@ -102,7 +102,7 @@ def start(services: Projects, asset: str, **overrides: object) -> str:
             "project_id": services.project.id,
             "media_asset_id": asset,
             "profile_key": "general_technical_qc",
-            "profile_version": "1.0.0",
+            "profile_version": "1.1.0",
             "ai_mode": "OFF",
             **overrides,
         },

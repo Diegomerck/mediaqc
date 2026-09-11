@@ -4,12 +4,14 @@ import json
 import logging
 import threading
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
 from mediaqc_engine.app.errors import AppError
-from mediaqc_engine.db import runs
+from mediaqc_engine.db import findings, runs
 from mediaqc_engine.db.project import Project, now
+from mediaqc_engine.detectors.audio import registry
 from mediaqc_engine.detectors.contract import Detector, DetectorContext
 from mediaqc_engine.jobs.cancellation import CancellationToken, Cancelled
 from mediaqc_engine.jobs.recovery import Journal
@@ -27,12 +29,12 @@ class JobManager:
         self,
         emit: EventSink,
         journal: Journal,
-        detectors: tuple[Detector, ...] = (),
+        detectors: tuple[Detector, ...] | None = None,
         tool_factory: Callable[[], MediaTools] = MediaTools,
     ):
         self.emit = emit
         self.journal = journal
-        self.detectors = detectors
+        self.detectors = registry() if detectors is None else detectors
         self.tool_factory = tool_factory
         self.worker: threading.Thread | None = None
         self.token = CancellationToken()
@@ -287,8 +289,7 @@ class JobManager:
             if not scheduled:
                 raise AppError(
                     "RUN_START_FAILED",
-                    "No QC detectors are installed in Phase 3; orchestration "
-                    "is ready for Phase 4",
+                    "No installed detectors are enabled in the selected profile",
                 )
             execution_ids = []
             with db:
@@ -309,6 +310,7 @@ class JobManager:
                         ),
                     )
             failed = False
+            completed = 0
             for index, (detector, execution_id) in enumerate(
                 zip(scheduled, execution_ids, strict=True)
             ):
@@ -337,17 +339,58 @@ class JobManager:
                     if not detector.supports(context):
                         status = "SKIPPED"
                     else:
-                        result = detector.analyze(context)
+
+                        def report(
+                            seconds: float,
+                            detector_index: int = index,
+                            detector_name: str = detector.detector_id,
+                        ) -> None:
+                            duration = float(str(asset.get("duration_seconds") or 0))
+                            with self.lock:
+                                self.progress["media_time_seconds"] = seconds
+                            self.update(
+                                identifier,
+                                "ANALYZING",
+                                0.1
+                                + 0.9
+                                * (
+                                    detector_index
+                                    + min(1.0, seconds / duration if duration else 0)
+                                )
+                                / len(scheduled),
+                                "Analyzing audio",
+                                detector_name,
+                            )
+
+                        result = detector.analyze(
+                            replace(context, report_progress=report)
+                        )
                         token.check()
-                        # Phase 3 has no production detectors/findings. Later algorithms
-                        # integrate their persistence at this explicit result boundary.
-                        if result.findings:
-                            raise AppError(
-                                "ENGINE_INTERNAL_ERROR",
-                                "Finding-producing detectors are unavailable "
-                                "in this phase",
+                        with db:
+                            for draft in result.findings:
+                                token.check()
+                                findings.save(
+                                    db, path.parent, identifier, execution_id, draft
+                                )
+                        for draft in result.findings:
+                            self.send(
+                                "analysis.finding_created",
+                                identifier,
+                                {
+                                    key: draft[key]
+                                    for key in (
+                                        "id",
+                                        "detector_id",
+                                        "severity",
+                                        "title",
+                                        "start_time_seconds",
+                                        "end_time_seconds",
+                                    )
+                                },
                             )
                         metrics = result.metrics
+                        metrics["warnings"] = result.warnings
+                        completed += 1
                         runs.encode(metrics)
                         for warning in result.warnings:
                             context.logger.warning(
@@ -364,6 +407,31 @@ class JobManager:
                         "Detector execution failed; see engine log",
                     )
                     failed = True
+                    if isinstance(exc, AppError):
+                        code, message = exc.code, exc.message
+                        metrics["error_details"] = exc.details
+                    log_path = (
+                        path.parent
+                        / "logs"
+                        / f"{identifier}-{detector.detector_id}.json"
+                    )
+                    try:
+                        log_path.write_text(
+                            runs.encode(
+                                {
+                                    "detector_id": detector.detector_id,
+                                    "error_code": code,
+                                    "error_message": message,
+                                    "details": metrics.get("error_details", {}),
+                                }
+                            ),
+                            encoding="utf-8",
+                        )
+                        metrics["log_reference"] = log_path.relative_to(
+                            path.parent
+                        ).as_posix()
+                    except OSError:
+                        metrics["log_error"] = "LOG_WRITE_FAILED"
                     context.logger.error(
                         "detector=%s failure=%s",
                         detector.detector_id,
@@ -398,6 +466,10 @@ class JobManager:
                 raise AppError(
                     "ENGINE_INTERNAL_ERROR",
                     "One or more detectors failed; remaining safe work finished",
+                )
+            if not completed:
+                raise AppError(
+                    "MEDIA_UNSUPPORTED", "No enabled audio detector supports this media"
                 )
             self.finish(project, identifier, "COMPLETED", token)
         except Exception as exc:
@@ -458,7 +530,10 @@ class JobManager:
         self.send("analysis.progress", identifier, dict(self.progress))
         data: dict[str, object] = {"status": status}
         if status == "COMPLETED":
-            data.update(overall_result="PASS", counts={"INFO": 0, "WARN": 0, "FAIL": 0})
+            data.update(
+                overall_result=findings.overall(project.connection, identifier),
+                counts=findings.counts(project.connection, identifier),
+            )
         if status == "FAILED":
             data.update(error_code=code, error_message=message)
         self.send(f"analysis.{status.lower()}", identifier, data)

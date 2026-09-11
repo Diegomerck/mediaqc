@@ -7,17 +7,21 @@ from pathlib import Path
 from mediaqc_engine.app.errors import AppError
 
 
-def builtin() -> dict[str, object]:
+def builtin(version: str = "1.1.0") -> dict[str, object]:
     value: dict[str, object] = json.loads(
         Path(__file__)
-        .with_name("general_technical_qc.json")
+        .with_name(
+            "general_technical_qc_1_0.json"
+            if version == "1.0.0"
+            else "general_technical_qc.json"
+        )
         .read_text(encoding="utf-8")
     )
     return value
 
 
 def validate(profile: dict[str, object]) -> None:
-    baseline = builtin()
+    baseline = builtin(str(profile.get("version")))
 
     def check(value: object, template: object) -> None:
         if isinstance(template, dict):
@@ -26,7 +30,16 @@ def validate(profile: dict[str, object]) -> None:
                     "PROFILE_INVALID", "Profile is missing required settings"
                 )
             for key, item in template.items():
-                check(value[key], item)
+                nullable_bound = key in {
+                    "target_lufs",
+                    "max_dbtp",
+                    "max_dbfs",
+                    "max_estimated_noise_floor_dbfs",
+                    "max_difference_db",
+                    "min_correlation",
+                }
+                if not (nullable_bound and value[key] is None):
+                    check(value[key], item)
                 setting = value[key]
                 if key == "severity" and setting not in {"INFO", "WARN", "FAIL"}:
                     raise AppError("PROFILE_INVALID", "Invalid severity")
@@ -49,7 +62,7 @@ def validate(profile: dict[str, object]) -> None:
                             "Durations and counts must be non-negative",
                         )
                     if (
-                        key.endswith("_ratio")
+                        (key.endswith("_ratio") and key != "min_derivative_ratio")
                         or key == "sensitivity"
                         or key.endswith("_percentile")
                     ):
@@ -59,6 +72,73 @@ def validate(profile: dict[str, object]) -> None:
                                 "PROFILE_INVALID",
                                 "Profile setting is outside its range",
                             )
+            for low, high in (
+                ("min_lufs", "max_lufs"),
+                ("min_lu", "max_lu"),
+                ("min_duration_ms", "max_duration_ms"),
+            ):
+                if (
+                    value.get(low) is not None
+                    and value.get(high) is not None
+                    and value[low] > value[high]
+                ):
+                    raise AppError("PROFILE_INVALID", "Minimum must not exceed maximum")
+            for key in ("pairs",):
+                if key in value and (
+                    not value[key]
+                    or any(
+                        not isinstance(pair, list)
+                        or len(pair) != 2
+                        or any(type(index) is not int or index < 0 for index in pair)
+                        or pair[0] == pair[1]
+                        for pair in value[key]
+                    )
+                ):
+                    raise AppError(
+                        "PROFILE_INVALID",
+                        "Channel pairs require two distinct non-negative indices",
+                    )
+            for key in (
+                "min_consecutive_samples",
+                "harmonics",
+                "min_harmonics_detected",
+            ):
+                if key in value and (type(value[key]) is not int or value[key] < 1):
+                    raise AppError(
+                        "PROFILE_INVALID",
+                        "Sample and harmonic counts must be positive integers",
+                    )
+            if "fundamentals_hz" in value and (
+                not value["fundamentals_hz"]
+                or any(
+                    type(f) not in (int, float) or f <= 0
+                    for f in value["fundamentals_hz"]
+                )
+            ):
+                raise AppError("PROFILE_INVALID", "Hum frequencies must be positive")
+            for key in (
+                "merge_gap_ms",
+                "tolerance_lu",
+                "max_difference_db",
+                "max_quiet_std_db",
+                "min_jump_amplitude",
+                "min_derivative_ratio",
+            ):
+                if key in value and value[key] is not None and value[key] < 0:
+                    raise AppError("PROFILE_INVALID", "Gate must be non-negative")
+            if (
+                value.get("min_correlation") is not None
+                and not -1 <= value["min_correlation"] <= 1
+            ):
+                raise AppError("PROFILE_INVALID", "Correlation must be in [-1,1]")
+            if (
+                "min_spectral_flatness" in value
+                and not 0 <= value["min_spectral_flatness"] <= 1
+            ):
+                raise AppError("PROFILE_INVALID", "Flatness must be in [0,1]")
+            for key in ("context_ms", "frequency_tolerance_hz", "neighbor_band_hz"):
+                if key in value and value[key] <= 0:
+                    raise AppError("PROFILE_INVALID", "Window sizes must be positive")
         elif isinstance(template, bool):
             if not isinstance(value, bool):
                 raise AppError("PROFILE_INVALID", "Enabled settings must be boolean")
@@ -75,6 +155,22 @@ def validate(profile: dict[str, object]) -> None:
                 raise AppError("PROFILE_INVALID", "A bound must be numeric or null")
 
     check(profile, baseline)
+
+    def merged(
+        defaults: dict[str, object], supplied: dict[str, object]
+    ) -> dict[str, object]:
+        result = dict(defaults)
+        for key, item in supplied.items():
+            default = defaults.get(key)
+            result[key] = (
+                merged(default, item)
+                if isinstance(default, dict) and isinstance(item, dict)
+                else item
+            )
+        return result
+
+    # Validate optional Phase 4 gates even on a legacy snapshot, without mutating it.
+    check(merged(builtin(), profile), builtin())
     if profile["schema_version"] != "1.0.0":
         raise AppError("PROFILE_INVALID", "Unsupported profile schema")
     if re.fullmatch(r"[a-z0-9_.-]+", str(profile["profile_key"])) is None:
@@ -88,8 +184,8 @@ def validate(profile: dict[str, object]) -> None:
 
 
 def get(key: object, version: object) -> dict[str, object]:
-    profile = builtin()
-    if key != profile["profile_key"] or version != profile["version"]:
+    profile = builtin(str(version))
+    if key != profile["profile_key"] or version not in {"1.0.0", "1.1.0"}:
         raise AppError("PROFILE_NOT_FOUND", "Choose an available profile version")
     validate(profile)
     return profile

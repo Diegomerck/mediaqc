@@ -143,6 +143,7 @@ pub fn analysis_event(message: Message) -> Result<Value, Failure> {
             "analysis.status"
                 | "analysis.progress"
                 | "analysis.detector_status"
+                | "analysis.finding_created"
                 | "analysis.completed"
                 | "analysis.failed"
                 | "analysis.cancelled"
@@ -168,6 +169,17 @@ pub fn analysis_event(message: Message) -> Result<Value, Failure> {
 mod tests {
     use super::*;
     const ID: &str = "bd3ab941-a2e2-4303-a1a6-032c45d428a2";
+
+    #[test]
+    fn audio_finding_event_reaches_desktop() {
+        let wire = json!({"type":"event", "protocol_version":VERSION,
+            "event":"analysis.finding_created", "data":{"analysis_run_id":ID,
+            "id":ID,"detector_id":"audio.clipping","severity":"FAIL",
+            "title":"Clipping evidence","start_time_seconds":1.0,"end_time_seconds":1.1}});
+        let event = analysis_event(parse(wire.to_string().as_bytes()).unwrap()).unwrap();
+        assert_eq!(event["data"]["detector_id"], "audio.clipping");
+        assert_eq!(event["data"]["severity"], "FAIL");
+    }
 
     #[test]
     fn exact_request_and_success_envelopes() {

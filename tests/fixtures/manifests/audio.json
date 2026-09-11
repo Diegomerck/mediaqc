@@ -1,0 +1,178 @@
+[
+  {
+    "fixture_id": "audio.clean.001",
+    "generator_version": "1.0.0",
+    "file": "audio.clean.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": {
+      "sample_rate_hz": 48000,
+      "frequency_hz": 1000,
+      "peak_amplitude": 0.1
+    },
+    "expected_findings": [],
+    "forbidden_findings": [
+      { "detector_id": "audio.clipping" },
+      { "detector_id": "audio.hum" },
+      { "detector_id": "audio.dropout" },
+      { "detector_id": "audio.discontinuity" }
+    ]
+  },
+  {
+    "fixture_id": "audio.clipping.001",
+    "generator_version": "1.0.0",
+    "file": "audio.clipping.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": { "amplitude": 1.0 },
+    "expected_findings": [
+      {
+        "detector_id": "audio.clipping",
+        "severity_min": "FAIL",
+        "start_time_seconds": 1.0,
+        "end_time_seconds": 1.1,
+        "timestamp_tolerance_seconds": 0.001
+      }
+    ]
+  },
+  {
+    "fixture_id": "audio.true_peak.001",
+    "generator_version": "1.0.0",
+    "file": "audio.true_peak.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": {
+      "frequency_hz": 12000,
+      "reconstructed_amplitude": 1.1,
+      "phase_radians": 0.7853981633974483
+    },
+    "expected_findings": [
+      { "detector_id": "audio.true_peak", "severity_min": "FAIL" }
+    ]
+  },
+  {
+    "fixture_id": "audio.silence.001",
+    "generator_version": "1.0.0",
+    "file": "audio.silence.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": { "gap_amplitude": 0.0 },
+    "expected_findings": [
+      {
+        "detector_id": "audio.silence",
+        "severity_min": "WARN",
+        "start_time_seconds": 2.0,
+        "end_time_seconds": 4.0,
+        "timestamp_tolerance_seconds": 0.01
+      }
+    ]
+  },
+  {
+    "fixture_id": "audio.dropout.short.001",
+    "generator_version": "1.0.0",
+    "file": "audio.dropout.short.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": { "gap_amplitude": 0.0 },
+    "expected_findings": [
+      {
+        "detector_id": "audio.dropout",
+        "severity_min": "WARN",
+        "start_time_seconds": 2.0,
+        "end_time_seconds": 2.02,
+        "timestamp_tolerance_seconds": 0.002
+      }
+    ]
+  },
+  {
+    "fixture_id": "audio.discontinuity.001",
+    "generator_version": "1.0.0",
+    "file": "audio.discontinuity.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": { "spike_amplitude": 0.9 },
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "severity_min": "WARN",
+        "start_time_seconds": 2.0,
+        "end_time_seconds": 2.0000416667,
+        "timestamp_tolerance_seconds": 0.001
+      }
+    ]
+  },
+  {
+    "fixture_id": "audio.hum.50.001",
+    "generator_version": "1.0.0",
+    "file": "audio.hum.50.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": {
+      "fundamental_hz": 50,
+      "harmonics": 5,
+      "fundamental_amplitude": 0.03
+    },
+    "expected_findings": [
+      {
+        "detector_id": "audio.hum",
+        "severity_min": "WARN",
+        "start_time_seconds": 0.0,
+        "end_time_seconds": 6.0,
+        "timestamp_tolerance_seconds": 0.5
+      }
+    ]
+  },
+  {
+    "fixture_id": "audio.hum.60.001",
+    "generator_version": "1.0.0",
+    "file": "audio.hum.60.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": {
+      "fundamental_hz": 60,
+      "harmonics": 5,
+      "fundamental_amplitude": 0.03
+    },
+    "expected_findings": [
+      {
+        "detector_id": "audio.hum",
+        "severity_min": "WARN",
+        "start_time_seconds": 0.0,
+        "end_time_seconds": 6.0,
+        "timestamp_tolerance_seconds": 0.5
+      }
+    ]
+  },
+  {
+    "fixture_id": "audio.noise_floor.001",
+    "generator_version": "1.0.0",
+    "file": "audio.noise_floor.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": {
+      "noise_rms": 0.015,
+      "seed": 4001,
+      "repeated_block_seconds": 0.1
+    },
+    "expected_findings": [
+      { "detector_id": "audio.noise_floor", "severity_min": "WARN" }
+    ]
+  },
+  {
+    "fixture_id": "audio.channel_imbalance.001",
+    "generator_version": "1.0.0",
+    "file": "audio.channel_imbalance.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": { "channel_amplitude_ratio": 0.1 },
+    "expected_findings": [
+      { "detector_id": "audio.channel_imbalance", "severity_min": "WARN" }
+    ]
+  },
+  {
+    "fixture_id": "audio.phase_negative.001",
+    "generator_version": "1.0.0",
+    "file": "audio.phase_negative.001.wav",
+    "duration_seconds": 6.0,
+    "parameters": { "correlation": -1.0 },
+    "expected_findings": [
+      {
+        "detector_id": "audio.phase_correlation",
+        "severity_min": "WARN",
+        "start_time_seconds": 0.0,
+        "end_time_seconds": 6.0,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ]
+  }
+]
