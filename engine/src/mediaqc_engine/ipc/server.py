@@ -4,7 +4,8 @@ import json
 import logging
 import queue
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import BinaryIO
 from uuid import UUID
 
@@ -92,6 +93,8 @@ def handle_line(
                 raise AppError("PROJECT_NOT_FOUND", "No project session is available")
             result = projects.dispatch(method, request["params"])
         else:
+            if method == "system.shutdown" and projects is not None:
+                projects.jobs.shutdown()
             result = (
                 capabilities()
                 if method == "system.capabilities"
@@ -132,17 +135,45 @@ def write_message(output: BinaryIO, message: dict[str, object]) -> None:
     output.flush()
 
 
-def serve(source: BinaryIO, output: BinaryIO) -> None:
-    projects = Projects()
+def serve(
+    source: BinaryIO, output: BinaryIO, state_directory: Path | None = None
+) -> None:
+    lock = threading.Lock()
+
+    def send(message: dict[str, object]) -> None:
+        with lock:
+            write_message(output, message)
+
+    def emit(event: str, data: dict[str, object]) -> None:
+        try:
+            send(
+                {
+                    "type": "event",
+                    "protocol_version": PROTOCOL_VERSION,
+                    "event": event,
+                    "data": data,
+                }
+            )
+        except OSError:
+            LOG.warning("Desktop event pipe closed")
+
+    projects = Projects(emit=emit, state_directory=state_directory)
     try:
-        serve_session(source, output, projects)
+        serve_session(source, output, projects, send)
     finally:
         projects.close()
 
 
-def serve_session(source: BinaryIO, output: BinaryIO, projects: Projects) -> None:
-    write_message(
-        output,
+def serve_session(
+    source: BinaryIO,
+    output: BinaryIO,
+    projects: Projects,
+    send: Callable[[dict[str, object]], None] | None = None,
+) -> None:
+    writer = (
+        send if send is not None else lambda message: write_message(output, message)
+    )
+    writer(
         {
             "type": "event",
             "protocol_version": PROTOCOL_VERSION,
@@ -156,7 +187,7 @@ def serve_session(source: BinaryIO, output: BinaryIO, projects: Projects) -> Non
             return
         response, shutdown = handle_line(line, projects)
         if response is not None:
-            write_message(output, response)
+            writer(response)
         if shutdown:
             return
 

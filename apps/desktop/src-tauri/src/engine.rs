@@ -69,7 +69,10 @@ impl Config {
     pub fn packaged(resources: PathBuf, logs: PathBuf) -> Self {
         Self {
             executable: resources.join("resources/engine/mediaqc-engine.exe"),
-            args: vec![],
+            args: vec![
+                "--state-directory".into(),
+                logs.join("recovery").to_string_lossy().into_owned(),
+            ],
             log_path: logs.join("engine.log"),
             timeout: Duration::from_secs(5),
             shutdown_timeout: Duration::from_secs(2),
@@ -98,6 +101,10 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(config: Config) -> Self {
+        Self::with_events(config, Arc::new(|_| {}))
+    }
+
+    pub fn with_events(config: Config, events: EventSink) -> Self {
         let (sender, receiver) = mpsc::channel();
         let snapshot = Arc::new(Mutex::new(Snapshot {
             phase: "stopped".into(),
@@ -110,7 +117,7 @@ impl Controller {
         let actor_snapshot = snapshot.clone();
         let interrupt = Arc::new(AtomicBool::new(false));
         let actor_interrupt = interrupt.clone();
-        thread::spawn(move || run_actor(config, receiver, actor_snapshot, actor_interrupt));
+        thread::spawn(move || run_actor(config, receiver, actor_snapshot, actor_interrupt, events));
         Self {
             sender,
             snapshot,
@@ -160,7 +167,16 @@ impl Controller {
     pub fn request(&self, method: String, params: Value) -> Result<Value, Failure> {
         if !matches!(
             method.as_str(),
-            "project.create" | "project.open" | "project.get" | "media.inspect"
+            "project.create"
+                | "project.open"
+                | "project.get"
+                | "media.inspect"
+                | "profile.list"
+                | "profile.get"
+                | "analysis.start"
+                | "analysis.cancel"
+                | "analysis.retry"
+                | "analysis.get"
         ) || !params.is_object()
         {
             return Err(Failure::new(
@@ -190,6 +206,7 @@ fn run_actor(
     receiver: mpsc::Receiver<Call>,
     snapshot: Arc<Mutex<Snapshot>>,
     interrupt: Arc<AtomicBool>,
+    events: EventSink,
 ) {
     let mut session: Option<Session> = None;
     loop {
@@ -214,7 +231,7 @@ fn run_actor(
                         } else {
                             update(&snapshot, "starting", None, None);
                             interrupt.store(false, Ordering::SeqCst);
-                            match Session::start(&config, interrupt.clone()) {
+                            match Session::start(&config, interrupt.clone(), events.clone()) {
                                 Ok(started) => {
                                     let capabilities = started.capabilities.clone();
                                     session = Some(started);
@@ -283,7 +300,10 @@ fn run_actor(
     }
 }
 
+pub type EventSink = Arc<dyn Fn(Value) + Send + Sync>;
+
 struct Session {
+    events: EventSink,
     child: Child,
     stdin: Option<ChildStdin>,
     messages: Option<mpsc::Receiver<Result<Message, Failure>>>,
@@ -294,7 +314,11 @@ struct Session {
 }
 
 impl Session {
-    fn start(config: &Config, interrupt: Arc<AtomicBool>) -> Result<Self, Failure> {
+    fn start(
+        config: &Config,
+        interrupt: Arc<AtomicBool>,
+        events: EventSink,
+    ) -> Result<Self, Failure> {
         let log = open_log(&config.log_path).map_err(Failure::io)?;
         let ownership = Ownership::new().map_err(Failure::io)?;
         let mut command = Command::new(&config.executable);
@@ -349,6 +373,7 @@ impl Session {
             }
         });
         let mut session = Self {
+            events,
             interrupt,
             child,
             stdin,
@@ -412,11 +437,8 @@ impl Session {
             .write_all(&bytes)
             .and_then(|()| stdin.flush())
             .map_err(Failure::io)?;
-        if method != "media.inspect" {
-            return protocol::response(self.receive(deadline)?, &id);
-        }
         loop {
-            if self.interrupt.load(Ordering::SeqCst) {
+            if method == "media.inspect" && self.interrupt.load(Ordering::SeqCst) {
                 return self.interrupt_inspection();
             }
             let tick = (Instant::now() + Duration::from_millis(50)).min(deadline);
@@ -424,6 +446,7 @@ impl Session {
                 Err(error) if error.code == "ENGINE_TIMEOUT" && Instant::now() < deadline => {
                     continue;
                 }
+                Ok(message @ Message::Event { .. }) => self.event(message)?,
                 result => return protocol::response(result?, &id),
             }
         }
@@ -473,12 +496,19 @@ impl Session {
             .try_recv()
         {
             Err(mpsc::TryRecvError::Empty) => Ok(()),
+            Ok(Ok(message @ Message::Event { .. })) => self.event(message),
             Ok(Err(error)) => Err(error),
             _ => Err(Failure::new(
                 "ENGINE_PROTOCOL_ERROR",
                 "Unexpected unsolicited engine output; restart it",
             )),
         }
+    }
+
+    fn event(&self, message: Message) -> Result<(), Failure> {
+        let value = protocol::analysis_event(message)?;
+        (self.events)(value);
+        Ok(())
     }
 
     fn shutdown(&mut self, config: &Config) -> Result<Value, Failure> {

@@ -22,6 +22,7 @@ const gates = [
   'desktop:build',
   'native:smoke',
   'phase2:smoke',
+  'phase3:smoke',
 ];
 
 const npmCli = process.env.npm_execpath;

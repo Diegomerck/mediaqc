@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import type { Run } from './jobs';
 
 export interface Stream {
   stream_index: number;
@@ -32,6 +33,7 @@ export interface Project {
   name: string;
   project_file: string;
   media_assets: MediaAsset[];
+  analysis_runs?: Run[];
 }
 export const projects = {
   pick: (kind: 'directory' | 'project' | 'media') =>

@@ -134,6 +134,36 @@ pub fn validate_capabilities(value: &Value) -> Result<(), Failure> {
     Ok(())
 }
 
+pub fn analysis_event(message: Message) -> Result<Value, Failure> {
+    if let Message::Event { event, data, .. } = message {
+        let identifier = data.get("analysis_run_id").and_then(Value::as_str);
+        let valid_id = identifier.is_some_and(|id| uuid::Uuid::parse_str(id).is_ok());
+        let known = matches!(
+            event.as_str(),
+            "analysis.status"
+                | "analysis.progress"
+                | "analysis.detector_status"
+                | "analysis.completed"
+                | "analysis.failed"
+                | "analysis.cancelled"
+        );
+        let progress_valid = event != "analysis.progress"
+            || data
+                .get("overall_progress")
+                .and_then(Value::as_f64)
+                .is_some_and(|p| (0.0..=1.0).contains(&p));
+        if valid_id && known && progress_valid {
+            return Ok(
+                json!({"type":"event", "protocol_version":VERSION, "event":event, "data":data}),
+            );
+        }
+    }
+    Err(Failure::new(
+        "ENGINE_PROTOCOL_ERROR",
+        "Invalid analysis event",
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

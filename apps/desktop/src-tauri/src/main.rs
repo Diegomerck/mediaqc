@@ -6,7 +6,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 async fn dispatch(
     controller: Controller,
@@ -73,10 +73,13 @@ fn main() {
     let exiting = Arc::new(AtomicBool::new(false));
     let app = tauri::Builder::default()
         .setup(|app| {
-            let controller = Controller::new(Config::packaged(
-                app.path().resource_dir()?,
-                app.path().app_log_dir()?,
-            ));
+            let handle = app.handle().clone();
+            let controller = Controller::with_events(
+                Config::packaged(app.path().resource_dir()?, app.path().app_log_dir()?),
+                Arc::new(move |event| {
+                    let _ = handle.emit("engine-event", event);
+                }),
+            );
             app.manage(controller);
             Ok(())
         })

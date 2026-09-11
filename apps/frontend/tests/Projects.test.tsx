@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import ProjectView from '../src/ProjectView';
 import { projects, type Project } from '../src/projects';
+vi.mock('../src/AnalysisView', () => ({ default: () => null }));
 
 vi.mock('../src/projects', () => ({
   projects: {

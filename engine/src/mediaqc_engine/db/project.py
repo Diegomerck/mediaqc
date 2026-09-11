@@ -157,7 +157,12 @@ class Project:
             **project,
             "project_file": str(self.path),
             "media_assets": assets,
-            "analysis_runs": [],
+            "analysis_runs": [
+                dict(row)
+                for row in self.connection.execute(
+                    "SELECT * FROM analysis_runs ORDER BY created_at DESC, id"
+                )
+            ],
         }
 
     def save_media(
