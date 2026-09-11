@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 
 from mediaqc_engine.app.errors import AppError
+from mediaqc_engine.db import findings
 from mediaqc_engine.db.project import Project, absolute
 from mediaqc_engine.db.runs import recover
 from mediaqc_engine.jobs.manager import METHODS as JOB_METHODS
@@ -22,6 +23,8 @@ METHODS = {
     "media.inspect",
     "profile.list",
     "profile.get",
+    "finding.list",
+    "finding.get",
 } | JOB_METHODS
 
 
@@ -56,6 +59,14 @@ class Projects:
             if self.project is None:
                 raise AppError("PROJECT_NOT_FOUND", "Open a project first")
             return self.jobs.dispatch(self.project, method, params)
+        if method in {"finding.list", "finding.get"}:
+            if self.project is None:
+                raise AppError("PROJECT_NOT_FOUND", "Open a project first")
+            if method == "finding.list":
+                return findings.list_findings(self.project.connection, params)
+            if set(params) != {"finding_id"}:
+                raise AppError("INVALID_REQUEST", "Specify finding_id")
+            return findings.get(self.project.connection, params["finding_id"])
         if method == "profile.list":
             if params:
                 raise AppError("INVALID_REQUEST", "Profile list params must be empty")

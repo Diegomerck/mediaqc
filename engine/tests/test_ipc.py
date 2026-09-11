@@ -113,7 +113,30 @@ def test_capabilities_are_truthful_and_versioned() -> None:
         "ffmpeg": {"available": False, "version": None},
         "ffprobe": {"available": False, "version": None},
         "ai": {"local_available": False, "provider": None},
-        "detectors": [],
+        "detectors": [
+            {
+                "id": identifier,
+                "version": "1.0.0",
+                "media_types": ["audio"],
+                "requires_ai": False,
+            }
+            for identifier in (
+                "audio.loudness.integrated",
+                "audio.loudness.short_term",
+                "audio.loudness.momentary",
+                "audio.loudness.range",
+                "audio.true_peak",
+                "audio.sample_peak",
+                "audio.clipping",
+                "audio.silence",
+                "audio.channel_imbalance",
+                "audio.phase_correlation",
+                "audio.hum",
+                "audio.noise_floor",
+                "audio.dropout",
+                "audio.discontinuity",
+            )
+        ],
     }
 
 

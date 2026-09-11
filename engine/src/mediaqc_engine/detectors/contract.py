@@ -1,6 +1,7 @@
 """UI-free scheduling contract from the detector specification."""
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -18,6 +19,7 @@ class DetectorContext:
     cancellation: CancellationToken
     media_tools: MediaTools
     logger: logging.LoggerAdapter[logging.Logger]
+    report_progress: Callable[[float], None] = lambda seconds: None
 
 
 @dataclass

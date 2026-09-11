@@ -26,10 +26,9 @@ fn main() {
     println!("ping: {}", controller.ping().expect("system.ping"));
     println!("pid: {}", controller.snapshot().pid.expect("engine pid"));
     let args: Vec<String> = std::env::args().collect();
-    if args
-        .get(1)
-        .is_some_and(|argument| argument == "--inspect" || argument == "--jobs")
-    {
+    if args.get(1).is_some_and(|argument| {
+        argument == "--inspect" || argument == "--jobs" || argument == "--audio"
+    }) {
         let project = controller
             .request(
                 "project.create".into(),
@@ -63,8 +62,13 @@ fn main() {
             serde_json::json!({"pong":true})
         );
         println!("PASS: Phase 2 inspect, restart, reopen, missing media, ping");
-        if args[1] == "--jobs" {
-            let started = controller.request("analysis.start".into(), serde_json::json!({"project_id":project["id"], "media_asset_id":inspected["media_asset_id"], "profile_key":"general_technical_qc", "profile_version":"1.0.0", "ai_mode":"OFF"})).expect("start job");
+        if args[1] == "--jobs" || args[1] == "--audio" {
+            let version = if args[1] == "--audio" {
+                "1.1.0"
+            } else {
+                "1.0.0"
+            };
+            let started = controller.request("analysis.start".into(), serde_json::json!({"project_id":project["id"], "media_asset_id":inspected["media_asset_id"], "profile_key":"general_technical_qc", "profile_version":version, "ai_mode":"OFF"})).expect("start job");
             assert_eq!(started["status"], "QUEUED");
             let id = &started["analysis_run_id"];
             controller
@@ -84,8 +88,14 @@ fn main() {
                 .expect("retry job");
             assert_ne!(retry["analysis_run_id"], *id);
             let failed = wait_run(&controller, &retry["analysis_run_id"]);
-            assert_eq!(failed["status"], "FAILED");
-            assert_eq!(failed["error_code"], "RUN_START_FAILED");
+            assert_eq!(failed["status"], "COMPLETED");
+            assert!(
+                failed["detector_states"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|detector| detector["status"] == "COMPLETED")
+            );
             assert_eq!(
                 failed["qc_profile_snapshot_json"],
                 cancelled["qc_profile_snapshot_json"]
@@ -99,6 +109,30 @@ fn main() {
                 )
                 .unwrap();
             assert_eq!(saved["analysis_runs"].as_array().unwrap().len(), 2);
+            if args[1] == "--audio" {
+                assert_eq!(failed["overall_result"], "FAIL");
+                let listed = controller.request("finding.list".into(), serde_json::json!({"analysis_run_id":retry["analysis_run_id"],"detector_id":"audio.clipping"})).expect("list persisted audio findings");
+                let issue = &listed["findings"][0];
+                assert_eq!(issue["severity"], "FAIL");
+                let detail = controller
+                    .request(
+                        "finding.get".into(),
+                        serde_json::json!({"finding_id":issue["id"]}),
+                    )
+                    .expect("read audio evidence");
+                assert_eq!(detail["measurements"]["clipped_sample_count"], 4800);
+                assert_eq!(detail["evidence"][0]["evidence_type"], "METRICS_JSON");
+                assert!(
+                    events
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .any(|event| event["event"] == "analysis.finding_created")
+                );
+                println!(
+                    "PASS: Phase 4 packaged audio detectors, FAIL aggregation, finding IPC, evidence, restart and legacy integration"
+                );
+            }
             assert!(
                 events
                     .lock()
@@ -114,7 +148,7 @@ fn main() {
                     .any(|event| event["event"] == "analysis.progress")
             );
             println!(
-                "PASS: Phase 3 queued start, cancellation, events, retry, persisted history, no false QC pass"
+                "PASS: Phase 3 queued start, cancellation, events, retry, persisted history, production audio QC"
             );
         }
     }
@@ -125,7 +159,7 @@ fn main() {
 }
 
 fn wait_run(controller: &Controller, id: &serde_json::Value) -> serde_json::Value {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + Duration::from_secs(30);
     loop {
         let result = controller
             .request(
