@@ -37,6 +37,8 @@ test('the desktop embeds assets and restricts IPC to its local engine commands',
         'allow-engine-status',
         'allow-engine-request',
         'allow-pick-path',
+        'core:event:allow-listen',
+        'core:event:allow-unlisten',
       ],
     },
   ]);

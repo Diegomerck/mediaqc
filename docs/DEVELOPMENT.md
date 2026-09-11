@@ -1,7 +1,7 @@
 # MediaQC development setup
 
-The active implementation is Phase 2 of `MASTER_SPEC.md`: projects and media
-inspection. Phase 0 and Phase 1 quality gates are preserved. Read `MASTER_SPEC.md`, `AGENTS.md`, `README.md`, and relevant Markdown files in
+The active implementation is Phase 3 of `MASTER_SPEC.md`: job orchestration.
+All Phase 0/1/2 quality gates are preserved. Read `MASTER_SPEC.md`, `AGENTS.md`, `README.md`, and relevant Markdown files in
 `specs/` before changing application code. Their precedence is authoritative.
 The original specification package is retained unchanged.
 
@@ -187,8 +187,10 @@ local toolchains, generated binaries or source media. No commit is part of setup
 
 ## Phase discipline
 
-Tests demonstrate project persistence, read-only inspection and desktop process
-lifecycle. Schema version 1 uses the canonical migration; later-phase tables are
-reserved with no analysis services. FFmpeg/ffprobe capabilities reflect the bundled
-executables. AI is unavailable and the detector registry is empty. Engine version
-remains `0.0.0`. No Phase 3+ functionality is implemented.
+Tests demonstrate project persistence, read-only inspection, local jobs and process
+cleanup. Schema version 1 uses the canonical migration and run/execution tables.
+FFmpeg/ffprobe capabilities reflect the bundled executables. AI is unavailable and
+the production detector registry is empty. Engine version remains `0.0.0`.
+No Phase 4+ functionality is implemented. See [Phase 3](PHASE_3.md) for job behavior,
+recovery and `npm run phase3:smoke`; the complete gate includes both Phase 2 and
+Phase 3 packaged smoke tests.

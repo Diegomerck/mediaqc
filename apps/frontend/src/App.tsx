@@ -81,7 +81,7 @@ export default function App() {
       <header>
         <p className="eyebrow">LOCAL MEDIA QUALITY CONTROL</p>
         <h1>MediaQC</h1>
-        <p className="muted">Local projects and media inspection · Phase 2</p>
+        <p className="muted">Local projects and media inspection · Phase 3</p>
       </header>
       {phase === 'ready' && <ProjectView key={status?.pid} />}
       <section
@@ -172,7 +172,7 @@ export default function App() {
           </div>
           <div>
             <dt>Detectors / local AI</dt>
-            <dd>{capabilities ? 'Unavailable in Phase 2' : '—'}</dd>
+            <dd>{capabilities ? 'Unavailable in Phase 3' : '—'}</dd>
           </div>
           <div>
             <dt>Engine process</dt>

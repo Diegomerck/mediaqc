@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { projects, type Project } from './projects';
 import { engineError, type EngineError } from './engine';
+import AnalysisView from './AnalysisView';
 
 interface Recent {
   path: string;
@@ -31,6 +32,7 @@ export default function ProjectView() {
   const [name, setName] = useState('');
   const [directory, setDirectory] = useState('');
   const [busy, setBusy] = useState(false);
+  const [activeRun, setActiveRun] = useState(false);
   const [failure, setFailure] = useState<EngineError | null>(null);
   const [recent, setRecent] = useState(loadRecent);
 
@@ -102,13 +104,13 @@ export default function ProjectView() {
           onChange={(event) => {
             setName(event.target.value);
           }}
-          disabled={busy}
+          disabled={busy || activeRun}
           maxLength={200}
         />
       </label>
       <div className="actions">
         <button
-          disabled={busy}
+          disabled={busy || activeRun}
           onClick={() => {
             void chooseDirectory();
           }}
@@ -116,7 +118,7 @@ export default function ProjectView() {
           Choose project directory
         </button>
         <button
-          disabled={busy || !directory || !name.trim()}
+          disabled={busy || activeRun || !directory || !name.trim()}
           onClick={() => {
             void perform('create');
           }}
@@ -124,7 +126,7 @@ export default function ProjectView() {
           Create project
         </button>
         <button
-          disabled={busy}
+          disabled={busy || activeRun}
           onClick={() => {
             void perform('open');
           }}
@@ -139,7 +141,7 @@ export default function ProjectView() {
           {recent.map((item) => (
             <p key={item.path}>
               <button
-                disabled={busy}
+                disabled={busy || activeRun}
                 onClick={() => {
                   void perform('open', item.path);
                 }}
@@ -167,9 +169,14 @@ export default function ProjectView() {
         <>
           <h3>{project.name}</h3>
           <p className="path">{project.project_file}</p>
+          <AnalysisView
+            key={project.id}
+            project={project}
+            onActive={setActiveRun}
+          />
           <div className="actions">
             <button
-              disabled={busy}
+              disabled={busy || activeRun}
               onClick={() => {
                 void perform('inspect');
               }}

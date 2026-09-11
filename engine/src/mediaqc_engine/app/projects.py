@@ -2,27 +2,85 @@
 
 import logging
 import sqlite3
+from pathlib import Path
 
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.db.project import Project, absolute
+from mediaqc_engine.db.runs import recover
+from mediaqc_engine.jobs.manager import METHODS as JOB_METHODS
+from mediaqc_engine.jobs.manager import EventSink, JobManager
+from mediaqc_engine.jobs.recovery import Journal, Lease
 from mediaqc_engine.media.inspection import fingerprint, map_probe
 from mediaqc_engine.media.tools import MediaTools
+from mediaqc_engine.qc import profiles
 
 LOG = logging.getLogger(__name__)
-METHODS = {"project.create", "project.open", "project.get", "media.inspect"}
+METHODS = {
+    "project.create",
+    "project.open",
+    "project.get",
+    "media.inspect",
+    "profile.list",
+    "profile.get",
+} | JOB_METHODS
 
 
 class Projects:
-    def __init__(self, tools: MediaTools | None = None):
+    def __init__(
+        self,
+        tools: MediaTools | None = None,
+        emit: EventSink = lambda event, data: None,
+        state_directory: Path | None = None,
+    ):
         self.tools = tools if tools is not None else MediaTools()
         self.project: Project | None = None
+        self.lease: Lease | None = None
+        journal = Journal(state_directory)
+        journal.recover()
+        self.jobs = JobManager(emit, journal)
 
     def close(self) -> None:
+        self.jobs.shutdown()
+        self.close_project()
+
+    def close_project(self) -> None:
         if self.project is not None:
             self.project.close()
             self.project = None
+        if self.lease is not None:
+            self.lease.close()
+            self.lease = None
 
     def dispatch(self, method: str, params: dict[str, object]) -> dict[str, object]:
+        if method in JOB_METHODS:
+            if self.project is None:
+                raise AppError("PROJECT_NOT_FOUND", "Open a project first")
+            return self.jobs.dispatch(self.project, method, params)
+        if method == "profile.list":
+            if params:
+                raise AppError("INVALID_REQUEST", "Profile list params must be empty")
+            profile = profiles.builtin()
+            return {
+                "profiles": [
+                    {
+                        key: profile[key]
+                        for key in ("profile_key", "name", "version", "description")
+                    }
+                ]
+            }
+        if method == "profile.get":
+            if set(params) != {"profile_key", "version"}:
+                raise AppError("INVALID_REQUEST", "Specify profile_key and version")
+            return profiles.get(params["profile_key"], params["version"])
+        if self.jobs.active and method in {
+            "project.create",
+            "project.open",
+            "media.inspect",
+        }:
+            raise AppError(
+                "RUN_START_FAILED",
+                "Cancel or finish the active run before changing media or projects",
+            )
         expected = {
             "project.create": {"directory", "name"},
             "project.open": {"project_file"},
@@ -47,9 +105,19 @@ class Projects:
                     )
                 else:
                     candidate = Project.open(absolute(params["project_file"]))
+                if self.project is not None and candidate.path == self.project.path:
+                    candidate.close()
+                    return self.project.summary()
+                try:
+                    lease = Lease(candidate.path)
+                except AppError:
+                    candidate.close()
+                    raise
+                recover(candidate.connection)
                 # A failed open/create never discards the current project.
-                self.close()
+                self.close_project()
                 self.project = candidate
+                self.lease = lease
                 return candidate.summary()
             project = self.project
             if project is None or (

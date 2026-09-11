@@ -33,6 +33,7 @@
     "engine:build": "uv run --locked python tools/build_engine.py",
     "media:prepare": "uv run --locked python tools/prepare_media_tools.py",
     "phase2:smoke": "uv run --locked python tools/smoke_phase2.py",
+    "phase3:smoke": "uv run --locked python tools/smoke_phase2.py --jobs",
     "engine:smoke": "uv run --locked python tools/smoke_engine.py",
     "native:smoke": "cargo build --locked --example engine_smoke --manifest-path apps/desktop/src-tauri/Cargo.toml && uv run --locked python tools/smoke_lifecycle.py",
     "desktop:prepare": "npm run engine:build && npm run build",

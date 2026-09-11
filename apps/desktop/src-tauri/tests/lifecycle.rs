@@ -163,6 +163,162 @@ fn stopping_interrupts_an_active_inspection() {
     controller.quit().unwrap();
 }
 
+#[test]
+fn analysis_events_interleave_with_responses_and_idle_health_checks() {
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let controller = Controller::with_events(
+        config("events"),
+        std::sync::Arc::new(move |event| {
+            sender.send(event).unwrap();
+        }),
+    );
+    controller.start().unwrap();
+    assert_eq!(controller.ping().unwrap(), json!({"pong":true}));
+    assert_eq!(
+        receiver.recv_timeout(Duration::from_secs(2)).unwrap()["event"],
+        "analysis.progress"
+    );
+    assert_eq!(
+        receiver.recv_timeout(Duration::from_secs(2)).unwrap()["event"],
+        "analysis.cancelled"
+    );
+    assert_eq!(controller.snapshot().phase, "ready");
+    controller.quit().unwrap();
+}
+
+#[test]
+fn invalid_analysis_event_is_a_protocol_error() {
+    let controller = Controller::new(config("bad_event"));
+    controller.start().unwrap();
+    assert_eq!(controller.ping().unwrap_err().code, "ENGINE_PROTOCOL_ERROR");
+    controller.quit().unwrap();
+}
+
+#[test]
+#[cfg(windows)]
+fn active_ffmpeg_is_reaped_on_cancel_shutdown_and_engine_crash() {
+    use windows_sys::Win32::{
+        Foundation::CloseHandle,
+        System::Threading::{OpenProcess, WaitForSingleObject},
+    };
+    for action in ["cancel", "shutdown", "crash"] {
+        let mut setup = config("jobs");
+        let directory = setup.log_path.parent().unwrap().to_path_buf();
+        std::fs::create_dir_all(&directory).unwrap();
+        setup
+            .args
+            .push(directory.join("recovery").to_string_lossy().into_owned());
+        let log = setup.log_path.clone();
+        let source = directory.join("source.wav");
+        let mut wave = b"RIFF".to_vec();
+        wave.extend_from_slice(&96036u32.to_le_bytes());
+        wave.extend_from_slice(b"WAVEfmt ");
+        wave.extend_from_slice(&16u32.to_le_bytes());
+        wave.extend_from_slice(&1u16.to_le_bytes());
+        wave.extend_from_slice(&1u16.to_le_bytes());
+        wave.extend_from_slice(&48000u32.to_le_bytes());
+        wave.extend_from_slice(&96000u32.to_le_bytes());
+        wave.extend_from_slice(&2u16.to_le_bytes());
+        wave.extend_from_slice(&16u16.to_le_bytes());
+        wave.extend_from_slice(b"data");
+        wave.extend_from_slice(&96000u32.to_le_bytes());
+        wave.resize(96044, 0);
+        std::fs::write(&source, &wave).unwrap();
+        let controller = Controller::new(setup);
+        controller.start().unwrap();
+        let project = controller
+            .request(
+                "project.create".into(),
+                json!({"directory":directory.join("project"), "name":"Native job"}),
+            )
+            .unwrap();
+        let media = controller
+            .request(
+                "media.inspect".into(),
+                json!({"project_id":project["id"], "absolute_path":source}),
+            )
+            .unwrap();
+        let run = controller.request("analysis.start".into(), json!({"project_id":project["id"], "media_asset_id":media["media_asset_id"], "profile_key":"general_technical_qc", "profile_version":"1.0.0", "ai_mode":"OFF"})).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let pid = loop {
+            let content = std::fs::read_to_string(&log).unwrap_or_default();
+            if let Some(value) = content
+                .lines()
+                .find_map(|line| line.strip_prefix("owned-ffmpeg-pid:"))
+            {
+                break value.parse::<u32>().unwrap();
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        };
+        // SAFETY: observe the exact test-owned FFmpeg process handle, close it once.
+        let handle = unsafe { OpenProcess(0x00100000, 0, pid) }; // SYNCHRONIZE access
+        assert!(!handle.is_null());
+        if action == "cancel" {
+            controller
+                .request(
+                    "analysis.cancel".into(),
+                    json!({"analysis_run_id":run["analysis_run_id"]}),
+                )
+                .unwrap();
+        } else if action == "shutdown" {
+            assert_eq!(controller.stop().unwrap()["forced"], false);
+        } else {
+            terminate(controller.snapshot().pid.unwrap());
+            let deadline = Instant::now() + Duration::from_secs(3);
+            while controller.snapshot().phase != "error" {
+                assert!(Instant::now() < deadline);
+                thread::sleep(Duration::from_millis(10));
+            }
+        }
+        assert_eq!(
+            unsafe { WaitForSingleObject(handle, 5000) },
+            0,
+            "FFmpeg survived {action}"
+        );
+        unsafe {
+            CloseHandle(handle);
+        }
+        if action != "cancel" {
+            controller.start().unwrap();
+            controller
+                .request(
+                    "project.open".into(),
+                    json!({"project_file":project["project_file"]}),
+                )
+                .unwrap();
+        }
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let result = loop {
+            let result = controller
+                .request(
+                    "analysis.get".into(),
+                    json!({"analysis_run_id":run["analysis_run_id"]}),
+                )
+                .unwrap();
+            if matches!(result["status"].as_str(), Some("CANCELLED" | "FAILED")) {
+                break result;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(
+            result["status"],
+            if action == "crash" {
+                "FAILED"
+            } else {
+                "CANCELLED"
+            }
+        );
+        if action == "crash" {
+            assert_eq!(result["error_code"], "ENGINE_INTERRUPTED");
+        }
+        assert_eq!(controller.ping().unwrap(), json!({"pong":true}));
+        controller.quit().unwrap();
+        assert_eq!(std::fs::read(&source).unwrap(), wave);
+    }
+}
+
 #[cfg(windows)]
 fn terminate(pid: u32) {
     use windows_sys::Win32::{

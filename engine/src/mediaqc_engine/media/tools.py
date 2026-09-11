@@ -6,6 +6,8 @@ import sys
 import tempfile
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from mediaqc_engine.app.errors import AppError
@@ -18,11 +20,48 @@ def tool_directory() -> Path:
 
 
 class MediaTools:
-    def __init__(self, directory: Path | None = None, timeout: float = 30):
+    def __init__(
+        self,
+        directory: Path | None = None,
+        timeout: float = 30,
+        cancellation: threading.Event | None = None,
+        cache: Path | None = None,
+    ):
         self.directory = directory if directory is not None else tool_directory()
         self.timeout = timeout
-        self.cancelled = threading.Event()
+        self.cancelled = cancellation if cancellation is not None else threading.Event()
         self.active = threading.Event()
+        self.cache = cache
+        self._lock = threading.Lock()
+        self._children: set[subprocess.Popen[bytes]] = set()
+
+    @property
+    def pids(self) -> list[int]:
+        with self._lock:
+            return [child.pid for child in self._children]
+
+    def cancel(self) -> None:
+        self.cancelled.set()
+        with self._lock:
+            for child in self._children:
+                if child.poll() is None:
+                    child.kill()
+                child.wait()
+
+    @contextmanager
+    def own(self, child: subprocess.Popen[bytes]) -> Iterator[None]:
+        with self._lock:
+            self._children.add(child)
+            if self.cancelled.is_set():
+                child.kill()
+        try:
+            yield
+        finally:
+            with self._lock:
+                if child.poll() is None:
+                    child.kill()
+                child.wait()
+                self._children.discard(child)
 
     def run(self, tool: str, arguments: list[str]) -> bytes:
         executable = self.directory / f"{tool}.exe"
@@ -32,23 +71,26 @@ class MediaTools:
                 "Bundled media tools are missing; rebuild or reinstall MediaQC",
             )
         # Temporary output is in the engine cache, never adjacent to source media.
-        cache = Path(tempfile.gettempdir()) / "MediaQC/cache"
+        cache = self.cache or Path(tempfile.gettempdir()) / "MediaQC/cache"
         cache.mkdir(parents=True, exist_ok=True)
         with (
             tempfile.TemporaryFile(dir=cache) as output,
             tempfile.TemporaryFile(dir=cache) as errors,
         ):
             try:
-                with subprocess.Popen(
-                    [str(executable), *arguments],
-                    stdin=subprocess.DEVNULL,
-                    stdout=output,
-                    stderr=errors,
-                    shell=False,
-                    creationflags=subprocess.CREATE_NO_WINDOW
-                    if sys.platform == "win32"
-                    else 0,
-                ) as child:
+                with (
+                    subprocess.Popen(
+                        [str(executable), *arguments],
+                        stdin=subprocess.DEVNULL,
+                        stdout=output,
+                        stderr=errors,
+                        shell=False,
+                        creationflags=subprocess.CREATE_NO_WINDOW
+                        if sys.platform == "win32"
+                        else 0,
+                    ) as child,
+                    self.own(child),
+                ):
                     deadline = time.monotonic() + self.timeout
                     while child.poll() is None:
                         if (
@@ -57,8 +99,6 @@ class MediaTools:
                             or output.tell() > 64 * 1024
                             or errors.tell() > 64 * 1024
                         ):
-                            child.kill()
-                            child.wait()
                             raise AppError(
                                 "MEDIA_INSPECTION_FAILED",
                                 "Inspection was interrupted or exceeded "
