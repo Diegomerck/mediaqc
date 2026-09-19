@@ -588,7 +588,18 @@ def test_disabled_video_detector_and_evidence_write_failure(tmp_path: Path) -> N
         video = [s for s in states if str(s["detector_id"]).startswith("video.")]
         assert len(video) == 1 and video[0]["detector_id"] == "video.black_frame"
         finding = cast(list[dict[str, object]], result["findings"])[0]
-        assert finding["evidence"] == []
+        # This fixture fails Path.write_text (metrics JSON), not FFmpeg's PNG
+        # output. Phase 6 must retain those independently successful artifacts.
+        references = cast(list[dict[str, object]], finding["evidence"])
+        assert {item["evidence_type"] for item in references} == {
+            "VIDEO_FRAME_BEFORE",
+            "VIDEO_FRAME",
+            "VIDEO_FRAME_AFTER",
+        }
+        assert all(
+            (tmp_path / "project" / str(item["relative_path"])).is_file()
+            for item in references
+        )
         assert "EVIDENCE_WRITE_FAILED" in json.dumps(finding["metadata"])
     finally:
         service.close()

@@ -179,6 +179,8 @@ impl Controller {
                 | "analysis.get"
                 | "finding.list"
                 | "finding.get"
+                | "finding.set_disposition"
+                | "evidence.read"
         ) || !params.is_object()
         {
             return Err(Failure::new(

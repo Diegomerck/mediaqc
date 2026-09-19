@@ -145,6 +145,14 @@ def public(db: sqlite3.Connection, row: sqlite3.Row) -> dict[str, object]:
             "SELECT * FROM evidence WHERE finding_id=?", (value["id"],)
         )
     ]
+    value["feedback"] = [
+        dict(item)
+        for item in db.execute(
+            "SELECT previous_disposition,new_disposition,note,created_at "
+            "FROM operator_feedback WHERE finding_id=? ORDER BY rowid",
+            (value["id"],),
+        )
+    ]
     return value
 
 
@@ -209,3 +217,50 @@ def get(db: sqlite3.Connection, identifier: object) -> dict[str, object]:
     if row is None:
         raise AppError("INVALID_REQUEST", "Finding does not exist in this project")
     return public(db, row)
+
+
+def set_disposition(
+    db: sqlite3.Connection, params: dict[str, object]
+) -> dict[str, object]:
+    if not {"finding_id", "disposition"} <= params.keys() or not params.keys() <= {
+        "finding_id",
+        "disposition",
+        "note",
+    }:
+        raise AppError(
+            "INVALID_REQUEST", "Specify finding_id, disposition and optional note"
+        )
+    disposition, note = params["disposition"], params.get("note")
+    if (
+        not isinstance(disposition, str)
+        or disposition not in {"OPEN", "CONFIRMED", "FALSE_POSITIVE", "IGNORED"}
+        or (note is not None and (not isinstance(note, str) or len(note) > 4000))
+    ):
+        raise AppError(
+            "INVALID_REQUEST", "Invalid disposition or note (maximum 4000 characters)"
+        )
+    with db:
+        db.execute("BEGIN IMMEDIATE")
+        finding = get(db, params["finding_id"])
+        db.execute(
+            "INSERT INTO operator_feedback VALUES (?,?,?,?,?,?)",
+            (
+                str(uuid4()),
+                finding["id"],
+                finding["disposition"],
+                disposition,
+                note,
+                now(),
+            ),
+        )
+        db.execute(
+            "UPDATE findings SET disposition=?,updated_at=? WHERE id=?",
+            (disposition, now(), finding["id"]),
+        )
+        run_id = str(finding["analysis_run_id"])
+        db.execute(
+            "UPDATE analysis_runs SET overall_result=? "
+            "WHERE id=? AND status='COMPLETED'",
+            (overall(db, run_id), run_id),
+        )
+    return get(db, finding["id"])

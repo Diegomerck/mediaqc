@@ -4,6 +4,7 @@ import logging
 import sqlite3
 from pathlib import Path
 
+from mediaqc_engine import evidence
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.db import findings
 from mediaqc_engine.db.project import Project, absolute
@@ -25,6 +26,8 @@ METHODS = {
     "profile.get",
     "finding.list",
     "finding.get",
+    "finding.set_disposition",
+    "evidence.read",
 } | JOB_METHODS
 
 
@@ -55,6 +58,16 @@ class Projects:
             self.lease = None
 
     def dispatch(self, method: str, params: dict[str, object]) -> dict[str, object]:
+        if method in {"finding.set_disposition", "evidence.read"}:
+            if self.project is None:
+                raise AppError("PROJECT_NOT_FOUND", "Open a project first")
+            if method == "finding.set_disposition":
+                return findings.set_disposition(self.project.connection, params)
+            if set(params) != {"evidence_id"}:
+                raise AppError("INVALID_REQUEST", "Specify evidence_id")
+            return evidence.read(
+                self.project.connection, self.project.path.parent, params["evidence_id"]
+            )
         if method in JOB_METHODS:
             if self.project is None:
                 raise AppError("PROJECT_NOT_FOUND", "Open a project first")

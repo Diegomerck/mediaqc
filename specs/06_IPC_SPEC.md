@@ -237,6 +237,33 @@ Params may include:
 
 Returns finding + evidence.
 
+Phase 6 also returns persisted operator feedback in `feedback`, ordered by
+creation: previous/new disposition, optional note, and UTC creation timestamp.
+Finding lists include the same feedback for review after project reopen.
+
+### `evidence.read`
+
+Phase 6 bounded, read-only artifact retrieval. Params:
+
+```json
+{"evidence_id": "uuid"}
+```
+
+The engine resolves the saved reference in the open project's `evidence/`
+directory; callers cannot supply filesystem paths. Evidence remains on disk.
+One request reads at most 256 KiB of artifact content. PNG evidence returns
+`data_url`, `start_time_seconds`, `end_time_seconds`, and `metadata`; metrics
+JSON returns `text`. Image metadata includes the artifact SHA-256, finding
+interval, and preview window length where applicable. Times use seconds.
+
+The engine checks the saved run's source fingerprint and available artifact
+digest before returning content. Missing, unreadable, unsupported, or oversized
+artifacts return a structured `EVIDENCE_UNAVAILABLE` error. Changed artifacts
+or changed source identity return `EVIDENCE_STALE`; source access errors retain
+their existing media error codes. The UI must display these errors and retain
+access to finding measurements. No regeneration or source modification occurs
+in this method.
+
 ### `finding.set_disposition`
 
 Params:
@@ -248,6 +275,13 @@ Params:
   "note": "Intentional black slate"
 }
 ```
+
+Returns the saved finding with evidence references and feedback. The optional
+note is limited to 4,000 characters. In one transaction, append operator feedback,
+save the disposition, and recalculate the overall result for a completed run.
+`OPEN` and `CONFIRMED` findings contribute; `FALSE_POSITIVE` and `IGNORED` do
+not, as specified by the product acceptance examples. Incomplete runs retain
+a null overall result. The UI refreshes `analysis.get` after saving.
 
 ### `report.generate`
 

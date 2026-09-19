@@ -1,8 +1,36 @@
 import { useState } from 'react';
 import { jobs, type Finding, type Run } from './jobs';
 import { engineError } from './engine';
+import EvidenceView from './EvidenceView';
+import ResultsTimeline from './ResultsTimeline';
 
-export default function AudioResults({ run }: { run: Run }) {
+function profileLabel(snapshot: string) {
+  try {
+    const profile = JSON.parse(snapshot) as { name?: string; version?: string };
+    return `${profile.name ?? 'Unnamed profile'} v${profile.version ?? 'unknown'}`;
+  } catch {
+    return 'Profile snapshot unavailable';
+  }
+}
+
+export default function AudioResults({ run: initial }: { run: Run }) {
+  const [saved, setSaved] = useState<Run | null>(null);
+  const run = saved ?? initial;
+  const [additional, setAdditional] = useState<Finding[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [note, setNote] = useState('');
+  const [filters, setFilters] = useState({
+    severity: '',
+    detector: '',
+    disposition: '',
+    kind: '',
+    search: '',
+  });
+  const findings = [...(run.findings ?? []), ...additional];
+  const selected =
+    findings.find((item) => item.id === selectedId) ?? findings[0];
   const mediaLabel = run.detector_states.some(
     (detector) =>
       detector.detector_id.startsWith('video.') &&
@@ -10,10 +38,20 @@ export default function AudioResults({ run }: { run: Run }) {
   )
     ? 'Audio / Video'
     : 'Audio';
-  const [additional, setAdditional] = useState<Finding[]>([]);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const findings = [...(run.findings ?? []), ...additional];
+  const visible = findings.filter(
+    (item) =>
+      (!filters.severity || item.severity === filters.severity) &&
+      (!filters.detector || item.detector_id === filters.detector) &&
+      (!filters.disposition || item.disposition === filters.disposition) &&
+      item.detector_id.startsWith(filters.kind) &&
+      `${item.title} ${item.description} ${item.detector_id}`
+        .toLowerCase()
+        .includes(filters.search.toLowerCase()),
+  );
+  function select(item: Finding) {
+    setSelectedId(item.id);
+    setNote('');
+  }
   async function more() {
     setLoading(true);
     try {
@@ -25,8 +63,35 @@ export default function AudioResults({ run }: { run: Run }) {
       setLoading(false);
     }
   }
+  async function disposition(value: string) {
+    if (!selected) return;
+    setLoading(true);
+    setError('');
+    try {
+      const updated = await jobs.disposition(selected.id, value, note);
+      // Reflect the persisted finding even if the subsequent summary refresh fails.
+      setSaved({
+        ...run,
+        findings: (run.findings ?? []).map((item) =>
+          item.id === updated.id ? updated : item,
+        ),
+      });
+      setAdditional((previous) =>
+        previous.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      setSaved(await jobs.get(run.id));
+    } catch (failure: unknown) {
+      const detail = engineError(failure);
+      setError(
+        `${detail.code}: ${detail.message}. Reload the run to verify saved state.`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
   return (
     <section aria-label={`${mediaLabel} QC results`}>
+      <p>Profile: {profileLabel(run.qc_profile_snapshot_json)}</p>
       <h4>
         {mediaLabel} QC: {run.overall_result ?? 'Incomplete'}
       </h4>
@@ -37,48 +102,115 @@ export default function AudioResults({ run }: { run: Run }) {
         </p>
       )}
       <p>
-        Run date: {run.started_at ?? 'Not started'}. Measurement evidence is
-        saved in this project.
+        Dispositions:{' '}
+        {['OPEN', 'CONFIRMED', 'FALSE_POSITIVE', 'IGNORED']
+          .map(
+            (value) =>
+              `${value}: ${String(run.summary?.dispositions?.[value] ?? findings.filter((item) => item.disposition === value).length)}`,
+          )
+          .join(' · ')}
       </p>
-      {findings.map((finding) => (
-        <details key={finding.id}>
-          <summary>
-            {finding.severity} ·{' '}
-            {finding.start_time_seconds === null
-              ? 'Whole stream'
-              : `${finding.start_time_seconds.toFixed(3)}–${(finding.end_time_seconds ?? finding.start_time_seconds).toFixed(3)} s`}{' '}
-            · {finding.title}
-          </summary>
-          <p>{finding.description}</p>
-          <p>
-            {finding.detector_id} v{finding.detector_version} · Stream:{' '}
-            {finding.stream_id} · {finding.disposition}
-          </p>
-          <p>
-            Duration: {finding.duration_seconds ?? 'Whole stream'} · Confidence:{' '}
-            {finding.confidence ?? 'Deterministic measurement'}
-          </p>
-          <h5>Measurements</h5>
-          <pre>{JSON.stringify(finding.measurements, null, 2)}</pre>
-          <h5>Profile thresholds</h5>
-          <pre>{JSON.stringify(finding.threshold, null, 2)}</pre>
-          <h5>Evidence in project</h5>
-          {finding.evidence.map((evidence) => (
-            <p key={evidence.id}>
-              {evidence.evidence_type}: {evidence.relative_path}
-            </p>
-          ))}
-          {finding.evidence.length === 0 && (
-            <p role="alert">
-              Evidence unavailable:{' '}
-              {JSON.stringify(
-                finding.metadata.evidence_error ??
-                  'No evidence reference saved',
-              )}
-            </p>
-          )}
-        </details>
-      ))}
+      <p>
+        Media: {run.media?.file_name ?? run.media_asset_id} · Run date:{' '}
+        {run.started_at ?? 'Not started'}
+      </p>
+      <details>
+        <summary>Run profile snapshot</summary>
+        <pre>{run.qc_profile_snapshot_json}</pre>
+      </details>
+      <fieldset>
+        <legend>
+          Filter loaded findings ({findings.length} of{' '}
+          {run.total ?? findings.length})
+        </legend>
+        {(['severity', 'detector', 'disposition', 'kind'] as const).map(
+          (key) => (
+            <label key={key}>
+              {key}
+              <select
+                aria-label={`Filter ${key}`}
+                value={filters[key]}
+                onChange={(event) => {
+                  setFilters({ ...filters, [key]: event.target.value });
+                }}
+              >
+                <option value="">All</option>
+                {(key === 'severity'
+                  ? ['FAIL', 'WARN', 'INFO']
+                  : key === 'disposition'
+                    ? ['OPEN', 'CONFIRMED', 'FALSE_POSITIVE', 'IGNORED']
+                    : key === 'kind'
+                      ? ['audio.', 'video.']
+                      : [...new Set(findings.map((item) => item.detector_id))]
+                ).map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+          ),
+        )}
+        <label>
+          Search text
+          <input
+            value={filters.search}
+            onChange={(event) => {
+              setFilters({ ...filters, search: event.target.value });
+            }}
+          />
+        </label>
+      </fieldset>
+      <ResultsTimeline
+        findings={visible}
+        duration={
+          run.media?.duration_seconds ??
+          run.progress.media_duration_seconds ??
+          Math.max(1, ...findings.map((item) => item.end_time_seconds ?? 0))
+        }
+        selected={selected}
+        select={select}
+      />
+      <div className="findings-table">
+        <table>
+          <caption>Findings — select an issue to inspect</caption>
+          <thead>
+            <tr>
+              {[
+                'Severity',
+                'Time (s)',
+                'Detector',
+                'Title',
+                'Duration (s)',
+                'Confidence',
+                'Disposition',
+              ].map((label) => (
+                <th key={label}>{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((item) => (
+              <tr key={item.id} aria-selected={selected?.id === item.id}>
+                <td>{item.severity}</td>
+                <td>{item.start_time_seconds?.toFixed(3) ?? 'Whole stream'}</td>
+                <td>{item.detector_id}</td>
+                <td>
+                  <button
+                    onClick={() => {
+                      select(item);
+                    }}
+                  >
+                    {item.title}
+                  </button>
+                </td>
+                <td>{item.duration_seconds ?? 'Whole stream'}</td>
+                <td>{item.confidence ?? 'Not applicable'}</td>
+                <td>{item.disposition}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {visible.length === 0 && <p>No findings match these filters.</p>}
       {findings.length < (run.total ?? 0) && (
         <button
           disabled={loading}
@@ -89,19 +221,93 @@ export default function AudioResults({ run }: { run: Run }) {
           Load more findings ({findings.length} of {run.total})
         </button>
       )}
+      {selected && (
+        <section aria-label="Issue inspector">
+          <h4>
+            {selected.severity} · {selected.title}
+          </h4>
+          <p>{selected.description}</p>
+          <p>
+            {selected.detector_id} v{selected.detector_version} · Stream:{' '}
+            {selected.stream_id ?? 'Not applicable'} · {selected.disposition}
+          </p>
+          <p>
+            Start: {selected.start_time_seconds ?? 'Whole stream'} · End:{' '}
+            {selected.end_time_seconds ?? 'Whole stream'} · Duration:{' '}
+            {selected.duration_seconds ?? 'Whole stream'} · Confidence:{' '}
+            {selected.confidence ?? 'Not applicable'}
+          </p>
+          <h5>Measurements</h5>
+          <pre>{JSON.stringify(selected.measurements, null, 2)}</pre>
+          <h5>Profile thresholds</h5>
+          <pre>{JSON.stringify(selected.threshold, null, 2)}</pre>
+          <EvidenceView key={selected.id} finding={selected} />
+          <details>
+            <summary>Disposition history</summary>
+            {selected.feedback?.map((entry, index) => (
+              <p key={index}>
+                {entry.created_at}: {entry.previous_disposition} →{' '}
+                {entry.new_disposition} · {entry.note ?? 'No note'}
+              </p>
+            ))}
+          </details>
+          <label>
+            Disposition note
+            <textarea
+              maxLength={4000}
+              value={note}
+              onChange={(event) => {
+                setNote(event.target.value);
+              }}
+            />
+          </label>
+          <div>
+            {(
+              [
+                ['CONFIRMED', 'Confirm'],
+                ['FALSE_POSITIVE', 'Mark False Positive'],
+                ['IGNORED', 'Ignore'],
+                ['OPEN', 'Reopen'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                disabled={loading}
+                onClick={() => {
+                  void disposition(value);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {error && <p role="alert">{error}</p>}
-      {run.detector_states.map((detector) => (
-        <details key={detector.id}>
-          <summary>
-            {detector.detector_id} measurements · {detector.status} · Findings:{' '}
-            {detector.finding_count ?? 0} · Worst severity:{' '}
-            {detector.worst_severity ?? 'None'}
-          </summary>
-          {detector.error_message && (
-            <p role="alert">{detector.error_message}</p>
-          )}
-          <pre>{detector.metrics_json ?? 'No measurements available'}</pre>
-        </details>
+      {(['audio.', 'video.'] as const).map((kind) => (
+        <section
+          key={kind}
+          aria-label={`${kind === 'audio.' ? 'Audio' : 'Video'} detector results`}
+        >
+          <h5>{kind === 'audio.' ? 'Audio' : 'Video'} detectors</h5>
+          {run.detector_states
+            .filter((detector) => detector.detector_id.startsWith(kind))
+            .map((detector) => (
+              <details key={detector.id}>
+                <summary>
+                  {detector.detector_id} measurements · {detector.status} ·
+                  Findings: {detector.finding_count ?? 0} · Worst severity:{' '}
+                  {detector.worst_severity ?? 'None'}
+                </summary>
+                {detector.error_message && (
+                  <p role="alert">{detector.error_message}</p>
+                )}
+                <pre>
+                  {detector.metrics_json ?? 'No measurements available'}
+                </pre>
+              </details>
+            ))}
+        </section>
       ))}
     </section>
   );

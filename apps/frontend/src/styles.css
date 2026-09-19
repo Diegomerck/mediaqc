@@ -156,3 +156,61 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+.findings-table {
+  overflow-x: auto;
+  max-height: 28rem;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #64748b;
+}
+tr[aria-selected='true'] {
+  background: #263c55;
+}
+fieldset label {
+  display: inline-grid;
+  margin: 8px;
+}
+input,
+select,
+textarea {
+  color: #fff;
+  background: #162231;
+  padding: 8px;
+  border: 1px solid #94a3b8;
+}
+:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+figure {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+figure img {
+  max-width: 100%;
+  height: auto;
+}
+.timeline {
+  width: 100%;
+  height: 40px;
+}
+.timeline-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 12rem;
+  overflow: auto;
+}
