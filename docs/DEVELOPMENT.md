@@ -1,11 +1,13 @@
 # MediaQC development setup
 
-The active implementation is Phase 5 of `MASTER_SPEC.md`: deterministic video QC.
+The active implementation is Phase 6 of `MASTER_SPEC.md`: evidence and results UX.
+See [Phase 6](PHASE_6.md) for evidence, dispositions, IPC, and validation.
 See [Phase 5](PHASE_5.md) for video algorithms, profiles, fixtures and the 22 quality gates.
 [Phase 4](PHASE_4.md) documents the existing audio detector suite.
 All Phase 0/1/2 quality gates are preserved. Read `MASTER_SPEC.md`, `AGENTS.md`, `README.md`, and relevant Markdown files in
 `specs/` before changing application code. Their precedence is authoritative.
-The original specification package is retained unchanged.
+Phase 6 documents its additive evidence-read IPC contract in `specs/06_IPC_SPEC.md`;
+the existing transport, schemas, and disposition rules are preserved.
 
 ## Windows prerequisites
 

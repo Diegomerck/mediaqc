@@ -141,6 +141,7 @@ def test_complete_progress_snapshot_and_sequential_runs(
         "QUEUED",
         "INSPECTING",
         "ANALYZING",
+        "GENERATING_EVIDENCE",
         "COMPLETED",
     ]
     second = start(services, asset)

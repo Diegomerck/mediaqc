@@ -3,7 +3,12 @@ import { expect, test, vi } from 'vitest';
 import AudioResults from '../src/AudioResults';
 import { jobs, type Finding, type Run } from '../src/jobs';
 
-vi.mock('../src/jobs', () => ({ jobs: { findings: vi.fn() } }));
+vi.mock('../src/jobs', () => ({
+  jobs: {
+    findings: vi.fn(),
+    evidence: vi.fn().mockResolvedValue({ text: 'Saved metrics' }),
+  },
+}));
 const finding: Finding = {
   id: 'finding',
   detector_id: 'audio.clipping',
@@ -62,7 +67,7 @@ const run: Run = {
 test('shows saved audio result, raw measurements, thresholds and evidence', () => {
   render(<AudioResults run={run} />);
   expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();
-  fireEvent.click(screen.getByText(/Clipping evidence/u));
+  fireEvent.click(screen.getByRole('button', { name: 'Clipping evidence' }));
   expect(screen.getByText(/4800/u)).toBeTruthy();
   expect(screen.getByText(/-0.01/u)).toBeTruthy();
   expect(screen.getByText(/evidence\/audio\/run\/finding.json/u)).toBeTruthy();

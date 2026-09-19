@@ -19,7 +19,8 @@ ACTIVE = {
 TRANSITIONS = {
     "QUEUED": {"INSPECTING", "CANCELLED", "FAILED"},
     "INSPECTING": {"ANALYZING", "CANCELLED", "FAILED"},
-    "ANALYZING": {"COMPLETED", "CANCELLED", "FAILED"},
+    "ANALYZING": {"GENERATING_EVIDENCE", "COMPLETED", "CANCELLED", "FAILED"},
+    "GENERATING_EVIDENCE": {"COMPLETED", "CANCELLED", "FAILED"},
 }
 
 
@@ -150,9 +151,24 @@ def summary(db: sqlite3.Connection, identifier: str) -> dict[str, object]:
         )
     return {
         **run,
+        "media": dict(
+            db.execute(
+                "SELECT file_name,duration_seconds,absolute_path "
+                "FROM media_assets WHERE id=?",
+                (run["media_asset_id"],),
+            ).fetchone()
+        ),
         "analysis_run_id": identifier,
         "detector_states": executions,
         "summary": {
+            "dispositions": {
+                row[0]: row[1]
+                for row in db.execute(
+                    "SELECT disposition,COUNT(*) FROM findings "
+                    "WHERE analysis_run_id=? GROUP BY disposition",
+                    (identifier,),
+                )
+            },
             "counts": counts(db, identifier),
             "qc_available": any(item["status"] == "COMPLETED" for item in executions),
         },

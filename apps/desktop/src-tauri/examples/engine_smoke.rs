@@ -143,6 +143,12 @@ fn main() {
                 let relative = detail["evidence"][0]["relative_path"].as_str().unwrap();
                 assert!(relative.starts_with("evidence/video/"));
                 assert!(PathBuf::from(&args[2]).join(relative).is_file());
+                evidence_review(
+                    &controller,
+                    &detail,
+                    &project,
+                    &["VIDEO_FRAME_BEFORE", "VIDEO_FRAME", "VIDEO_FRAME_AFTER"],
+                );
                 assert!(
                     events
                         .lock()
@@ -167,6 +173,12 @@ fn main() {
                     .expect("read audio evidence");
                 assert_eq!(detail["measurements"]["clipped_sample_count"], 4800);
                 assert_eq!(detail["evidence"][0]["evidence_type"], "METRICS_JSON");
+                evidence_review(
+                    &controller,
+                    &detail,
+                    &project,
+                    &["AUDIO_WAVEFORM", "AUDIO_SPECTROGRAM"],
+                );
                 assert!(
                     events
                         .lock()
@@ -224,4 +236,64 @@ fn wait_run(controller: &Controller, id: &serde_json::Value) -> serde_json::Valu
         );
         std::thread::sleep(Duration::from_millis(20));
     }
+}
+
+fn evidence_review(
+    controller: &Controller,
+    finding: &serde_json::Value,
+    project: &serde_json::Value,
+    kinds: &[&str],
+) {
+    for kind in kinds {
+        let artifact = finding["evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["evidence_type"] == *kind)
+            .expect("visual evidence exists");
+        let loaded = controller
+            .request(
+                "evidence.read".into(),
+                serde_json::json!({"evidence_id": artifact["id"]}),
+            )
+            .expect("read bounded visual evidence");
+        assert!(
+            loaded["data_url"]
+                .as_str()
+                .unwrap()
+                .starts_with("data:image/png;base64,")
+        );
+    }
+    for disposition in ["CONFIRMED", "FALSE_POSITIVE", "IGNORED"] {
+        let updated = controller.request("finding.set_disposition".into(), serde_json::json!({"finding_id":finding["id"], "disposition":disposition, "note":"Operator review é"})).unwrap();
+        assert_eq!(updated["disposition"], disposition);
+    }
+    controller.stop().unwrap();
+    controller.start().unwrap();
+    controller
+        .request(
+            "project.open".into(),
+            serde_json::json!({"project_file":project["project_file"]}),
+        )
+        .unwrap();
+    let reopened = controller
+        .request(
+            "finding.get".into(),
+            serde_json::json!({"finding_id":finding["id"]}),
+        )
+        .unwrap();
+    assert_eq!(reopened["disposition"], "IGNORED");
+    assert_eq!(
+        reopened["feedback"].as_array().unwrap().last().unwrap()["note"],
+        "Operator review é"
+    );
+    controller
+        .request(
+            "finding.set_disposition".into(),
+            serde_json::json!({"finding_id":finding["id"], "disposition":"OPEN"}),
+        )
+        .unwrap();
+    println!(
+        "PASS: Phase 6 visual evidence read, dispositions and notes persisted across engine restart"
+    );
 }

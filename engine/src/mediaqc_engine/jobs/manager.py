@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
+from mediaqc_engine import evidence
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.db import findings, runs
 from mediaqc_engine.db.project import Project, now
@@ -461,6 +462,13 @@ class JobManager:
                         "error_message": message,
                     },
                 )
+            token.check()
+            runs.transition(db, identifier, "GENERATING_EVIDENCE")
+            self.send("analysis.status", identifier, {"status": "GENERATING_EVIDENCE"})
+            self.update(
+                identifier, "GENERATING_EVIDENCE", 0.95, "Generating project evidence"
+            )
+            evidence.generate(db, path.parent, identifier, tools, token)
             token.check()
             if failed:
                 raise AppError(

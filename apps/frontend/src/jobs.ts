@@ -10,6 +10,11 @@ export interface Progress {
   message: string;
 }
 export interface Run {
+  media?: {
+    file_name: string;
+    duration_seconds: number | null;
+    absolute_path: string;
+  };
   id: string;
   analysis_run_id: string;
   media_asset_id: string;
@@ -31,6 +36,7 @@ export interface Run {
   }[];
   overall_result?: 'PASS' | 'WARN' | 'FAIL' | null;
   summary?: {
+    dispositions?: Record<string, number>;
     counts: { INFO: number; WARN: number; FAIL: number };
     qc_available: boolean;
   };
@@ -38,6 +44,12 @@ export interface Run {
   total?: number;
 }
 export interface Finding {
+  feedback?: {
+    previous_disposition: string;
+    new_disposition: string;
+    note: string | null;
+    created_at: string;
+  }[];
   id: string;
   detector_id: string;
   detector_version: string;
@@ -69,6 +81,21 @@ export interface AnalysisEvent {
 const call = <T>(method: string, params: object) =>
   invoke<T>('engine_request', { method, params });
 export const jobs = {
+  finding: (finding_id: string) => call<Finding>('finding.get', { finding_id }),
+  disposition: (finding_id: string, disposition: string, note: string) =>
+    call<Finding>('finding.set_disposition', { finding_id, disposition, note }),
+  evidence: (evidence_id: string) =>
+    call<{
+      data_url?: string;
+      text?: string;
+      start_time_seconds?: number;
+      end_time_seconds?: number;
+      metadata?: {
+        finding_start_seconds?: number | null;
+        finding_end_seconds?: number | null;
+        window_seconds?: number | null;
+      };
+    }>('evidence.read', { evidence_id }),
   profiles: () => call<{ profiles: Profile[] }>('profile.list', {}),
   start: (project_id: string, media_asset_id: string, profile: Profile) =>
     call<{ analysis_run_id: string; status: string }>('analysis.start', {
