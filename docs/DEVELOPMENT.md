@@ -1,6 +1,7 @@
 # MediaQC development setup
 
-The active implementation is Phase 6 of `MASTER_SPEC.md`: evidence and results UX.
+The active implementation is Phase 7 of `MASTER_SPEC.md`: reports.
+See [Phase 7](PHASE_7.md) for offline HTML/PDF export and validation.
 See [Phase 6](PHASE_6.md) for evidence, dispositions, IPC, and validation.
 See [Phase 5](PHASE_5.md) for video algorithms, profiles, fixtures and the 22 quality gates.
 [Phase 4](PHASE_4.md) documents the existing audio detector suite.

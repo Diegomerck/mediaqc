@@ -3,6 +3,7 @@ import { jobs, type Profile, type Run } from './jobs';
 import { engineError, type EngineError } from './engine';
 import type { Project } from './projects';
 import AudioResults from './AudioResults';
+import ReportExport from './ReportExport';
 
 const terminal = (status: string) =>
   ['COMPLETED', 'FAILED', 'CANCELLED'].includes(status);
@@ -261,6 +262,9 @@ export default function AnalysisView({
         </div>
       )}
       {run && terminal(run.status) && <AudioResults key={run.id} run={run} />}
+      {run?.status === 'COMPLETED' && (
+        <ReportExport key={run.id} runId={run.id} />
+      )}
       <details>
         <summary>Previous runs</summary>
         {history.map((item) => (

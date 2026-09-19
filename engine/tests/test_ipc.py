@@ -62,7 +62,7 @@ def test_exact_ready_ping_and_shutdown() -> None:
 @pytest.mark.parametrize(
     ("changes", "code"),
     [
-        ({"method": "report.generate"}, "METHOD_NOT_FOUND"),
+        ({"method": "report.generate"}, "PROJECT_NOT_FOUND"),
         ({"method": "system.version"}, "METHOD_NOT_FOUND"),
         ({"protocol_version": "2.0"}, "PROTOCOL_VERSION_UNSUPPORTED"),
         ({"type": "event"}, "INVALID_REQUEST"),
