@@ -24,6 +24,7 @@ const gates = [
   'phase2:smoke',
   'phase3:smoke',
   'phase4:smoke',
+  'phase5:smoke',
 ];
 
 const npmCli = process.env.npm_execpath;

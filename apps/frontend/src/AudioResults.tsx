@@ -3,6 +3,13 @@ import { jobs, type Finding, type Run } from './jobs';
 import { engineError } from './engine';
 
 export default function AudioResults({ run }: { run: Run }) {
+  const mediaLabel = run.detector_states.some(
+    (detector) =>
+      detector.detector_id.startsWith('video.') &&
+      detector.status !== 'SKIPPED',
+  )
+    ? 'Audio / Video'
+    : 'Audio';
   const [additional, setAdditional] = useState<Finding[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,8 +26,10 @@ export default function AudioResults({ run }: { run: Run }) {
     }
   }
   return (
-    <section aria-label="Audio QC results">
-      <h4>Audio QC: {run.overall_result ?? 'Incomplete'}</h4>
+    <section aria-label={`${mediaLabel} QC results`}>
+      <h4>
+        {mediaLabel} QC: {run.overall_result ?? 'Incomplete'}
+      </h4>
       {run.summary && (
         <p>
           FAIL: {run.summary.counts.FAIL} · WARN: {run.summary.counts.WARN} ·
@@ -28,8 +37,8 @@ export default function AudioResults({ run }: { run: Run }) {
         </p>
       )}
       <p>
-        Run date: {run.started_at ?? 'Not started'}. Audio measurement evidence
-        is saved in this project.
+        Run date: {run.started_at ?? 'Not started'}. Measurement evidence is
+        saved in this project.
       </p>
       {findings.map((finding) => (
         <details key={finding.id}>

@@ -1,0 +1,222 @@
+[
+  {
+    "fixture_id": "video.clean.001",
+    "generator_version": "1.0.0",
+    "file": "video.clean.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.black.001",
+    "generator_version": "1.0.0",
+    "file": "video.black.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.black_frame",
+        "start_time_seconds": 1,
+        "end_time_seconds": 2,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.near_black.001",
+    "generator_version": "1.0.0",
+    "file": "video.near_black.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.near_black_frame",
+        "start_time_seconds": 1,
+        "end_time_seconds": 2.2,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.freeze.001",
+    "generator_version": "1.0.0",
+    "file": "video.freeze.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.freeze",
+        "start_time_seconds": 1,
+        "end_time_seconds": 2,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.duplicate.001",
+    "generator_version": "1.0.0",
+    "file": "video.duplicate.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.12,
+        "timestamp_tolerance_seconds": 0.05
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.12,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.flash.001",
+    "generator_version": "1.0.0",
+    "file": "video.flash.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.flash",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.12,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.luma_anomaly.001",
+    "generator_version": "1.0.0",
+    "file": "video.luma_anomaly.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.luminance_anomaly",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.28,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.timestamp_irregularity.001",
+    "generator_version": "1.0.0",
+    "file": "video.timestamp_irregularity.001.mp4",
+    "duration_seconds": 5,
+    "expected_findings": [
+      {
+        "detector_id": "video.timestamp_integrity",
+        "start_time_seconds": 3,
+        "end_time_seconds": 3.04,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.visual_anomaly.001",
+    "generator_version": "1.0.0",
+    "file": "video.visual_anomaly.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.visual_anomaly",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.12,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.exposure.001",
+    "generator_version": "1.0.0",
+    "file": "video.exposure.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.exposure_anomaly",
+        "start_time_seconds": 1,
+        "end_time_seconds": 2.2,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.color.001",
+    "generator_version": "1.0.0",
+    "file": "video.color.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.color_anomaly",
+        "start_time_seconds": 1,
+        "end_time_seconds": 2.2,
+        "timestamp_tolerance_seconds": 0.05
+      }
+    ],
+    "forbidden_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ]
+  },
+  {
+    "fixture_id": "video.decode_corrupt.001",
+    "generator_version": "1.0.0",
+    "file": "video.decode_corrupt.001.mp4",
+    "duration_seconds": 4,
+    "expected_findings": [
+      {
+        "detector_id": "video.decode_integrity"
+      }
+    ],
+    "forbidden_findings": []
+  }
+]

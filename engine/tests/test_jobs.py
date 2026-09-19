@@ -130,7 +130,7 @@ def test_complete_progress_snapshot_and_sequential_runs(
     assert result["overall_result"] == "PASS"
     assert result["ffmpeg_version"] and result["ffprobe_version"]
     snapshot = result["qc_profile_snapshot_json"]
-    assert json.loads(str(snapshot)) == profiles.builtin()
+    assert json.loads(str(snapshot)) == profiles.builtin("1.1.0")
     assert result["media_fingerprint_sha256"]
     assert result["started_at"] and result["completed_at"]
     progress = [data for name, data in events if name == "analysis.progress"]

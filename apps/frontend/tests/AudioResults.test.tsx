@@ -98,3 +98,41 @@ test('loads additional saved findings through bounded IPC pages', async () => {
   await screen.findByText(/Second issue/u);
   expect(jobs.findings).toHaveBeenCalledWith('run', 1);
 });
+
+test('shows video findings and project evidence with video detector states', () => {
+  render(
+    <AudioResults
+      run={{
+        ...run,
+        detector_states: [
+          {
+            id: 'black',
+            detector_id: 'video.black_frame',
+            status: 'COMPLETED',
+          },
+        ],
+        findings: [
+          {
+            ...finding,
+            detector_id: 'video.black_frame',
+            title: 'Black frame candidate',
+            measurements: { mean_luma_normalized: 0.001 },
+            evidence: [
+              {
+                id: 'video-evidence',
+                evidence_type: 'METRICS_JSON',
+                relative_path: 'evidence/video/run/black.json',
+              },
+            ],
+          },
+        ],
+      }}
+    />,
+  );
+  expect(
+    screen.getByRole('region', { name: 'Audio / Video QC results' }),
+  ).toBeTruthy();
+  expect(screen.getByText('Audio / Video QC: FAIL')).toBeTruthy();
+  expect(screen.getByText(/mean_luma_normalized/u)).toBeTruthy();
+  expect(screen.getByText(/evidence\/video\/run\/black.json/u)).toBeTruthy();
+});

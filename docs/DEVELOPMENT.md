@@ -1,7 +1,8 @@
 # MediaQC development setup
 
-The active implementation is Phase 4 of `MASTER_SPEC.md`: deterministic audio QC.
-See [Phase 4](PHASE_4.md) for algorithms, profiles, fixtures and the 21 quality gates.
+The active implementation is Phase 5 of `MASTER_SPEC.md`: deterministic video QC.
+See [Phase 5](PHASE_5.md) for video algorithms, profiles, fixtures and the 22 quality gates.
+[Phase 4](PHASE_4.md) documents the existing audio detector suite.
 All Phase 0/1/2 quality gates are preserved. Read `MASTER_SPEC.md`, `AGENTS.md`, `README.md`, and relevant Markdown files in
 `specs/` before changing application code. Their precedence is authoritative.
 The original specification package is retained unchanged.

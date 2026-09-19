@@ -444,7 +444,21 @@ def test_production_persistence_ipc_reopen_and_immutability(tmp_path: Path) -> N
         assert result["status"] == "COMPLETED", result
         assert result["overall_result"] == "FAIL"
         assert "analysis.finding_created" in events and "analysis.completed" in events
-        assert len(cast(list[object], result["detector_states"])) == 13
+        states = cast(list[dict[str, object]], result["detector_states"])
+        assert (
+            len([s for s in states if str(s["detector_id"]).startswith("audio.")]) == 13
+        )
+        assert (
+            len(
+                [
+                    s
+                    for s in states
+                    if str(s["detector_id"]).startswith("video.")
+                    and s["status"] == "SKIPPED"
+                ]
+            )
+            == 13
+        )
         request = {
             "type": "request",
             "protocol_version": "1.0",

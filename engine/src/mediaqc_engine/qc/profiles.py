@@ -7,12 +7,14 @@ from pathlib import Path
 from mediaqc_engine.app.errors import AppError
 
 
-def builtin(version: str = "1.1.0") -> dict[str, object]:
+def builtin(version: str = "1.2.0") -> dict[str, object]:
     value: dict[str, object] = json.loads(
         Path(__file__)
         .with_name(
             "general_technical_qc_1_0.json"
             if version == "1.0.0"
+            else "general_technical_qc_1_1.json"
+            if version == "1.1.0"
             else "general_technical_qc.json"
         )
         .read_text(encoding="utf-8")
@@ -63,6 +65,15 @@ def validate(profile: dict[str, object]) -> None:
                         )
                     if (
                         (key.endswith("_ratio") and key != "min_derivative_ratio")
+                        or key.endswith("_normalized")
+                        or key.endswith("similarity_threshold")
+                        or key
+                        in {
+                            "min_frame_difference",
+                            "min_histogram_divergence",
+                            "min_edge_density_delta",
+                            "min_surrounding_motion",
+                        }
                         or key == "sensitivity"
                         or key.endswith("_percentile")
                     ):
@@ -76,6 +87,8 @@ def validate(profile: dict[str, object]) -> None:
                 ("min_lufs", "max_lufs"),
                 ("min_lu", "max_lu"),
                 ("min_duration_ms", "max_duration_ms"),
+                ("min_duration_seconds", "max_duration_seconds"),
+                ("shadow_luma_normalized", "highlight_luma_normalized"),
             ):
                 if (
                     value.get(low) is not None
@@ -83,6 +96,19 @@ def validate(profile: dict[str, object]) -> None:
                     and value[low] > value[high]
                 ):
                     raise AppError("PROFILE_INVALID", "Minimum must not exceed maximum")
+            for dimension in ("width", "height"):
+                if dimension in value and (
+                    type(value[dimension]) is not int
+                    or not 16 <= value[dimension] <= 1920
+                ):
+                    raise AppError(
+                        "PROFILE_INVALID",
+                        "Video dimensions must be integers in [16,1920]",
+                    )
+            if value.get("expected_fps") is not None and value["expected_fps"] <= 0:
+                raise AppError(
+                    "PROFILE_INVALID", "Expected frame rate must be positive"
+                )
             for key in ("pairs",):
                 if key in value and (
                     not value[key]
@@ -102,6 +128,8 @@ def validate(profile: dict[str, object]) -> None:
                 "min_consecutive_samples",
                 "harmonics",
                 "min_harmonics_detected",
+                "min_repeat_count",
+                "motion_context_frames",
             ):
                 if key in value and (type(value[key]) is not int or value[key] < 1):
                     raise AppError(
@@ -119,6 +147,7 @@ def validate(profile: dict[str, object]) -> None:
             for key in (
                 "merge_gap_ms",
                 "tolerance_lu",
+                "tolerance_fps",
                 "max_difference_db",
                 "max_quiet_std_db",
                 "min_jump_amplitude",
@@ -185,7 +214,7 @@ def validate(profile: dict[str, object]) -> None:
 
 def get(key: object, version: object) -> dict[str, object]:
     profile = builtin(str(version))
-    if key != profile["profile_key"] or version not in {"1.0.0", "1.1.0"}:
+    if key != profile["profile_key"] or version not in {"1.0.0", "1.1.0", "1.2.0"}:
         raise AppError("PROFILE_NOT_FOUND", "Choose an available profile version")
     validate(profile)
     return profile
