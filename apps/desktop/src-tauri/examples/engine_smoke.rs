@@ -287,6 +287,41 @@ fn evidence_review(
         reopened["feedback"].as_array().unwrap().last().unwrap()["note"],
         "Operator review é"
     );
+    for format in ["HTML", "PDF"] {
+        let params =
+            serde_json::json!({"analysis_run_id":finding["analysis_run_id"], "format":format});
+        let first = controller
+            .request("report.generate".into(), params.clone())
+            .expect("packaged report export");
+        let bytes = std::fs::read(first["absolute_path"].as_str().unwrap()).unwrap();
+        if format == "PDF" {
+            assert!(bytes.starts_with(b"%PDF-"));
+            assert!(bytes.ends_with(b"%%EOF\n"));
+        } else {
+            let text = std::str::from_utf8(&bytes).unwrap();
+            assert!(text.contains("IGNORED"));
+            assert!(text.contains("Operator review é"));
+            assert!(text.contains("Saved QC profile snapshot"));
+        }
+        controller.stop().unwrap();
+        controller.start().unwrap();
+        controller
+            .request(
+                "project.open".into(),
+                serde_json::json!({"project_file":project["project_file"]}),
+            )
+            .unwrap();
+        let second = controller
+            .request("report.generate".into(), params)
+            .unwrap();
+        assert_eq!(
+            bytes,
+            std::fs::read(second["absolute_path"].as_str().unwrap()).unwrap()
+        );
+    }
+    println!(
+        "PASS: Phase 7 packaged offline HTML/PDF, saved dispositions and byte-identical exports after restart"
+    );
     controller
         .request(
             "finding.set_disposition".into(),

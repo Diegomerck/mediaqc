@@ -19,6 +19,8 @@ def main() -> None:
             "--console",
             "--collect-data",
             "mediaqc_engine",
+            "--collect-data",
+            "reportlab",
             "--hidden-import",
             "scipy.fft",
             "--name",

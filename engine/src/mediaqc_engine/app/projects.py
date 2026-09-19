@@ -4,7 +4,7 @@ import logging
 import sqlite3
 from pathlib import Path
 
-from mediaqc_engine import evidence
+from mediaqc_engine import evidence, reports
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.db import findings
 from mediaqc_engine.db.project import Project, absolute
@@ -28,6 +28,7 @@ METHODS = {
     "finding.get",
     "finding.set_disposition",
     "evidence.read",
+    "report.generate",
 } | JOB_METHODS
 
 
@@ -58,6 +59,10 @@ class Projects:
             self.lease = None
 
     def dispatch(self, method: str, params: dict[str, object]) -> dict[str, object]:
+        if method == "report.generate":
+            if self.project is None:
+                raise AppError("PROJECT_NOT_FOUND", "Open a project first")
+            return reports.generate(self.project, params)
         if method in {"finding.set_disposition", "evidence.read"}:
             if self.project is None:
                 raise AppError("PROJECT_NOT_FOUND", "Open a project first")

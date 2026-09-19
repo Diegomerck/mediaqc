@@ -97,6 +97,11 @@ export const jobs = {
       };
     }>('evidence.read', { evidence_id }),
   profiles: () => call<{ profiles: Profile[] }>('profile.list', {}),
+  report: (analysis_run_id: string, format: 'HTML' | 'PDF') =>
+    call<{ absolute_path: string }>('report.generate', {
+      analysis_run_id,
+      format,
+    }),
   start: (project_id: string, media_asset_id: string, profile: Profile) =>
     call<{ analysis_run_id: string; status: string }>('analysis.start', {
       project_id,

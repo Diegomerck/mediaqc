@@ -181,6 +181,7 @@ impl Controller {
                 | "finding.get"
                 | "finding.set_disposition"
                 | "evidence.read"
+                | "report.generate"
         ) || !params.is_object()
         {
             return Err(Failure::new(

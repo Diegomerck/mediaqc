@@ -11,6 +11,7 @@ dependencies = [
     "numpy==2.4.1",
     "scipy==1.17.0",
     "opencv-python-headless==4.13.0.92",
+    "reportlab==4.4.10",
 ]
 
 [dependency-groups]
@@ -19,6 +20,7 @@ dev = [
     "pytest==9.0.2",
     "pyinstaller==6.19.0",
     "ruff==0.15.0",
+    "pypdf==6.9.1",
 ]
 
 [tool.uv]
