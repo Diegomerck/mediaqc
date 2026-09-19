@@ -11,7 +11,7 @@ from uuid import uuid4
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.db import findings, runs
 from mediaqc_engine.db.project import Project, now
-from mediaqc_engine.detectors.audio import registry
+from mediaqc_engine.detectors import registry
 from mediaqc_engine.detectors.contract import Detector, DetectorContext
 from mediaqc_engine.jobs.cancellation import CancellationToken, Cancelled
 from mediaqc_engine.jobs.recovery import Journal
@@ -358,7 +358,7 @@ class JobManager:
                                     + min(1.0, seconds / duration if duration else 0)
                                 )
                                 / len(scheduled),
-                                "Analyzing audio",
+                                "Analyzing " + detector_name.split(".")[0],
                                 detector_name,
                             )
 

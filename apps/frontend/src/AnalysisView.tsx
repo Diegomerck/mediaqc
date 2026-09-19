@@ -147,8 +147,8 @@ export default function AnalysisView({
     <section aria-labelledby="analysis-heading">
       <h3 id="analysis-heading">Analysis jobs</h3>
       <p>
-        Run deterministic audio QC locally using the selected profile. Source
-        media remains read-only.
+        Run deterministic audio and video QC locally using the selected profile.
+        Source media remains read-only.
       </p>
       <label>
         Analysis media{' '}

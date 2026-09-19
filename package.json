@@ -35,6 +35,8 @@
     "phase2:smoke": "uv run --locked python tools/smoke_phase2.py",
     "phase3:smoke": "uv run --locked python tools/smoke_phase2.py --jobs",
     "phase4:smoke": "uv run --locked python tools/smoke_phase4.py",
+    "phase5:smoke": "uv run --locked python tools/smoke_phase5.py",
+    "fixtures:video": "uv run --locked python tools/generate_test_media/video.py",
     "fixtures:audio": "uv run --locked python tools/generate_test_media/audio.py",
     "engine:smoke": "uv run --locked python tools/smoke_engine.py",
     "native:smoke": "cargo build --locked --example engine_smoke --manifest-path apps/desktop/src-tauri/Cargo.toml && uv run --locked python tools/smoke_lifecycle.py",

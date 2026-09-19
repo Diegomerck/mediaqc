@@ -31,7 +31,12 @@ def save(
         raise AppError("ENGINE_INTERNAL_ERROR", "Invalid finding interval")
     metadata = cast(dict[str, object], draft["metadata"])
     evidence: dict[str, object] | None = None
-    relative = Path("evidence/audio") / run_id / f"{draft['id']}.json"
+    relative = (
+        Path("evidence")
+        / str(draft["detector_id"]).split(".")[0]
+        / run_id
+        / f"{draft['id']}.json"
+    )
     try:
         output = project_directory / relative
         output.parent.mkdir(parents=True, exist_ok=True)

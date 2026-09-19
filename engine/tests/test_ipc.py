@@ -117,7 +117,7 @@ def test_capabilities_are_truthful_and_versioned() -> None:
             {
                 "id": identifier,
                 "version": "1.0.0",
-                "media_types": ["audio"],
+                "media_types": [identifier.split(".")[0]],
                 "requires_ai": False,
             }
             for identifier in (
@@ -135,6 +135,19 @@ def test_capabilities_are_truthful_and_versioned() -> None:
                 "audio.noise_floor",
                 "audio.dropout",
                 "audio.discontinuity",
+                "video.decode_integrity",
+                "video.frame_rate",
+                "video.timestamp_integrity",
+                "video.black_frame",
+                "video.near_black_frame",
+                "video.freeze",
+                "video.duplicate_frame",
+                "video.frame_cadence",
+                "video.luminance_anomaly",
+                "video.flash",
+                "video.exposure_anomaly",
+                "video.color_anomaly",
+                "video.visual_anomaly",
             )
         ],
     }

@@ -140,11 +140,18 @@ class MediaTools:
             return {"available": False, "version": None}
 
     def stream(
-        self, arguments: list[str], block_bytes: int = 65536
+        self,
+        arguments: list[str],
+        block_bytes: int = 65536,
+        *,
+        tool: str = "ffmpeg",
+        reject_errors: bool = False,
     ) -> Generator[bytes, None, None]:
         """Bounded decode pipe; own() reaps on cancellation, error or early close."""
         from mediaqc_engine.jobs.cancellation import Cancelled
 
+        if tool not in {"ffmpeg", "ffprobe"}:
+            raise ValueError("Unsupported bundled tool")
         if self.cancelled.is_set():
             raise Cancelled()
         excerpt: deque[bytes] = deque(maxlen=8)
@@ -152,8 +159,8 @@ class MediaTools:
             with (
                 subprocess.Popen(
                     [
-                        str(self.directory / "ffmpeg.exe"),
-                        "-nostdin",
+                        str(self.directory / f"{tool}.exe"),
+                        *(["-nostdin"] if tool == "ffmpeg" else []),
                         "-v",
                         "error",
                         *arguments,
@@ -186,10 +193,10 @@ class MediaTools:
                     if self.cancelled.is_set():
                         raise Cancelled()
                     reader.join()
-                    if child.returncode:
+                    if child.returncode or (reject_errors and excerpt):
                         raise AppError(
                             "MEDIA_UNSUPPORTED",
-                            "Audio decoding failed",
+                            "Media decoding failed",
                             {
                                 "exit_code": child.returncode,
                                 "stderr_excerpt": b"".join(excerpt).decode(
@@ -204,7 +211,7 @@ class MediaTools:
                     reader.join()
         except OSError as exc:
             raise AppError(
-                "MEDIA_UNSUPPORTED", "Cannot launch bundled audio decoder"
+                "MEDIA_UNSUPPORTED", "Cannot launch bundled media decoder"
             ) from exc
 
     def probe(self, path: Path) -> dict[str, object]:

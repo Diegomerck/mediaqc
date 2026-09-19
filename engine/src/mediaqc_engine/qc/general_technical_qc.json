@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "profile_key": "general_technical_qc",
   "name": "General Technical QC",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Conservative technical anomaly detection. Edit thresholds for delivery-specific requirements.",
   "audio": {
     "loudness": {
@@ -117,18 +117,24 @@
   "video": {
     "decode_integrity": {
       "enabled": true,
-      "severity": "FAIL"
+      "severity": "FAIL",
+      "max_missing_duration_seconds": 0.1
     },
     "frame_rate": {
       "enabled": true,
       "expected_fps": null,
       "tolerance_fps": 0.001,
-      "severity": "WARN"
+      "severity": "WARN",
+      "compare_declared_rate": true
     },
     "timestamp_integrity": {
       "enabled": true,
       "max_interval_deviation_ratio": 0.25,
-      "severity": "FAIL"
+      "severity": "FAIL",
+      "require_pts": true,
+      "allow_negative_timestamps": false,
+      "allow_variable_frame_rate": true,
+      "max_gap_seconds": 0.5
     },
     "black_frame": {
       "enabled": true,
@@ -137,56 +143,90 @@
       "min_duration_seconds": 0.5,
       "ignore_head_seconds": 0.0,
       "ignore_tail_seconds": 0.0,
-      "severity": "WARN"
+      "severity": "WARN",
+      "pixel_luma_threshold_normalized": 0.02
     },
     "near_black_frame": {
       "enabled": true,
       "max_mean_luma_normalized": 0.05,
       "min_duration_seconds": 1.0,
-      "severity": "INFO"
+      "severity": "INFO",
+      "min_black_pixel_ratio": 0.98,
+      "pixel_luma_threshold_normalized": 0.05,
+      "ignore_head_seconds": 0.0,
+      "ignore_tail_seconds": 0.0
     },
     "freeze": {
       "enabled": true,
       "min_duration_seconds": 0.5,
       "similarity_threshold": 0.995,
-      "severity": "WARN"
+      "severity": "WARN",
+      "min_surrounding_motion": 0.015,
+      "hash_similarity_threshold": 0.98,
+      "require_motion_context": true,
+      "motion_context_frames": 3
     },
     "duplicate_frame": {
       "enabled": true,
       "similarity_threshold": 0.999,
       "min_repeat_count": 2,
-      "severity": "INFO"
+      "severity": "INFO",
+      "require_cadence_evidence": true,
+      "max_duration_seconds": 0.25,
+      "min_surrounding_motion": 0.015
     },
     "frame_cadence": {
       "enabled": true,
-      "severity": "WARN"
+      "severity": "WARN",
+      "similarity_threshold": 0.999,
+      "min_repeat_count": 2,
+      "max_duration_seconds": 0.25,
+      "min_surrounding_motion": 0.015
     },
     "luminance_anomaly": {
       "enabled": true,
       "sensitivity": 0.75,
-      "severity": "WARN"
+      "severity": "WARN",
+      "min_luma_delta_normalized": 0.2,
+      "return_tolerance_normalized": 0.08,
+      "max_duration_seconds": 0.5
     },
     "flash": {
       "enabled": true,
       "min_luma_delta_normalized": 0.35,
       "max_duration_seconds": 0.25,
-      "severity": "WARN"
+      "severity": "WARN",
+      "return_tolerance_normalized": 0.08
     },
     "exposure_anomaly": {
       "enabled": true,
       "min_extreme_pixel_ratio": 0.98,
       "min_duration_seconds": 1.0,
-      "severity": "INFO"
+      "severity": "INFO",
+      "shadow_luma_normalized": 0.01,
+      "highlight_luma_normalized": 0.99
     },
     "color_anomaly": {
       "enabled": true,
       "sensitivity": 0.8,
-      "severity": "INFO"
+      "severity": "INFO",
+      "min_channel_spread_normalized": 0.8,
+      "min_dominant_pixel_ratio": 0.98,
+      "min_duration_seconds": 1.0
     },
     "visual_anomaly": {
       "enabled": true,
       "sensitivity": 0.85,
-      "severity": "WARN"
+      "severity": "WARN",
+      "min_frame_difference": 0.15,
+      "min_histogram_divergence": 0.2,
+      "min_edge_density_delta": 0.15,
+      "max_duration_seconds": 0.25,
+      "return_tolerance_normalized": 0.08
+    },
+    "measurement": {
+      "width": 320,
+      "height": 180
     }
   },
   "created_at": "2026-09-11T00:00:00Z",

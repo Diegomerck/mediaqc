@@ -27,7 +27,10 @@ fn main() {
     println!("pid: {}", controller.snapshot().pid.expect("engine pid"));
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).is_some_and(|argument| {
-        argument == "--inspect" || argument == "--jobs" || argument == "--audio"
+        argument == "--inspect"
+            || argument == "--jobs"
+            || argument == "--audio"
+            || argument == "--video"
     }) {
         let project = controller
             .request(
@@ -42,7 +45,11 @@ fn main() {
             )
             .expect("media inspect");
         assert_eq!(inspected["inspection_status"], "COMPLETED");
-        assert_eq!(inspected["streams"][0]["sample_rate_hz"], 48000);
+        if args[1] == "--video" {
+            assert_eq!(inspected["streams"][0]["stream_type"], "video");
+        } else {
+            assert_eq!(inspected["streams"][0]["sample_rate_hz"], 48000);
+        }
         controller.stop().expect("stop before reopen");
         controller.start().expect("restart engine");
         let reopened = controller
@@ -62,8 +69,10 @@ fn main() {
             serde_json::json!({"pong":true})
         );
         println!("PASS: Phase 2 inspect, restart, reopen, missing media, ping");
-        if args[1] == "--jobs" || args[1] == "--audio" {
-            let version = if args[1] == "--audio" {
+        if args[1] == "--jobs" || args[1] == "--audio" || args[1] == "--video" {
+            let version = if args[1] == "--video" {
+                "1.2.0"
+            } else if args[1] == "--audio" {
                 "1.1.0"
             } else {
                 "1.0.0"
@@ -94,7 +103,16 @@ fn main() {
                     .as_array()
                     .unwrap()
                     .iter()
-                    .all(|detector| detector["status"] == "COMPLETED")
+                    .all(|detector| {
+                        let applicable = detector["detector_id"].as_str().unwrap().starts_with(
+                            if args[1] == "--video" {
+                                "video."
+                            } else {
+                                "audio."
+                            },
+                        );
+                        detector["status"] == if applicable { "COMPLETED" } else { "SKIPPED" }
+                    })
             );
             assert_eq!(
                 failed["qc_profile_snapshot_json"],
@@ -109,6 +127,33 @@ fn main() {
                 )
                 .unwrap();
             assert_eq!(saved["analysis_runs"].as_array().unwrap().len(), 2);
+            if args[1] == "--video" {
+                assert_eq!(failed["overall_result"], "WARN");
+                let listed = controller.request("finding.list".into(), serde_json::json!({"analysis_run_id":retry["analysis_run_id"],"detector_id":"video.black_frame"})).expect("list video findings");
+                let issue = &listed["findings"][0];
+                assert!((issue["start_time_seconds"].as_f64().unwrap() - 1.0).abs() <= 0.05);
+                assert!((issue["end_time_seconds"].as_f64().unwrap() - 2.0).abs() <= 0.05);
+                let detail = controller
+                    .request(
+                        "finding.get".into(),
+                        serde_json::json!({"finding_id":issue["id"]}),
+                    )
+                    .unwrap();
+                assert_eq!(detail["evidence"][0]["evidence_type"], "METRICS_JSON");
+                let relative = detail["evidence"][0]["relative_path"].as_str().unwrap();
+                assert!(relative.starts_with("evidence/video/"));
+                assert!(PathBuf::from(&args[2]).join(relative).is_file());
+                assert!(
+                    events
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .any(|event| event["event"] == "analysis.finding_created")
+                );
+                println!(
+                    "PASS: Phase 5 packaged video detectors, timing, persistence/evidence, cancel/retry, restart"
+                );
+            }
             if args[1] == "--audio" {
                 assert_eq!(failed["overall_result"], "FAIL");
                 let listed = controller.request("finding.list".into(), serde_json::json!({"analysis_run_id":retry["analysis_run_id"],"detector_id":"audio.clipping"})).expect("list persisted audio findings");
