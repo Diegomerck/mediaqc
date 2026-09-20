@@ -12,8 +12,14 @@ fn main() {
     let sink = events.clone();
     let controller = Controller::with_events(
         Config::packaged(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/release"),
-            root.join(".cache/native-smoke"),
+            std::env::var_os("MEDIAQC_SMOKE_RESOURCES")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| {
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/release")
+                }),
+            std::env::var_os("MEDIAQC_SMOKE_LOGS")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| root.join(".cache/native-smoke")),
         ),
         Arc::new(move |event| {
             sink.lock().unwrap().push(event);

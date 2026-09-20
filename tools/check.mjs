@@ -19,7 +19,7 @@ const gates = [
   'rust:check',
   'rust:lint',
   'rust:test',
-  'desktop:build',
+  'desktop:build:prepared',
   'native:smoke',
   'phase2:smoke',
   'phase3:smoke',

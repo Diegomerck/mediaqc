@@ -1,7 +1,9 @@
 # MediaQC development setup
 
-The active implementation is Phase 8 of `MASTER_SPEC.md`: optional local AI.
-See [Phase 8](PHASE_8.md) for the embedded provider contract and validation.
+The active implementation is Phase 9 of `MASTER_SPEC.md`: Windows packaging/performance.
+See [Windows release](WINDOWS_RELEASE.md) for packaging, portable prerequisites,
+signing and clean-machine validation. The Phase 8 AI provider remains optional;
+no production model is bundled.
 See [Phase 7](PHASE_7.md) for offline HTML/PDF export and validation.
 See [Phase 6](PHASE_6.md) for evidence, dispositions, IPC, and validation.
 See [Phase 5](PHASE_5.md) for video algorithms, profiles, fixtures and the 22 quality gates.
@@ -97,8 +99,8 @@ Its configured build hook packages the Python engine and builds the frontend fir
 The PyInstaller 6.19.0 one-folder runtime is copied to `resources/engine/` beside
 the native executable. Keep that entire folder with the desktop executable.
 FFmpeg and ffprobe are included in that runtime from the checksum-pinned developer
-bootstrap. Installer creation and signing remain in Phase 9. See [Phase 2](PHASE_2.md)
-for provenance and distribution limitations.
+bootstrap. See [Windows release](WINDOWS_RELEASE.md) for installer/portable assembly
+and signing, and [Phase 2](PHASE_2.md) for FFmpeg provenance.
 For individual Rust commands on a fresh checkout, run `npm run desktop:prepare`
 first so embedded frontend assets and engine resources exist.
 
