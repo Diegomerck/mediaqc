@@ -153,6 +153,13 @@ def public(db: sqlite3.Connection, row: sqlite3.Row) -> dict[str, object]:
             (value["id"],),
         )
     ]
+    review = db.execute(
+        "SELECT * FROM ai_reviews WHERE finding_id=?", (value["id"],)
+    ).fetchone()
+    if review is not None:
+        saved = dict(review)
+        saved["output"] = json.loads(saved.pop("output_json") or "null")
+        value["ai_review"] = saved
     return value
 
 

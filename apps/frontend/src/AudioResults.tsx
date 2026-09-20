@@ -242,6 +242,45 @@ export default function AudioResults({ run: initial }: { run: Run }) {
           <h5>Profile thresholds</h5>
           <pre>{JSON.stringify(selected.threshold, null, 2)}</pre>
           <EvidenceView key={selected.id} finding={selected} />
+          {run.ai_mode === 'LOCAL' && (
+            <section aria-label="Optional local AI review">
+              <h5>Local AI review — advisory</h5>
+              {selected.ai_review?.status === 'COMPLETED' &&
+              selected.ai_review.output ? (
+                <>
+                  <p>{selected.ai_review.output.summary}</p>
+                  <p>
+                    {selected.ai_review.output.classification} · Confidence:{' '}
+                    {selected.ai_review.output.confidence} · Recommendation:{' '}
+                    {selected.ai_review.output.recommended_action}
+                  </p>
+                  <p>
+                    Model: {selected.ai_review.model_id}{' '}
+                    {selected.ai_review.model_version} · Template:{' '}
+                    {selected.ai_review.prompt_version} ·{' '}
+                    {selected.ai_review.created_at}
+                  </p>
+                  <p>
+                    Evidence references:{' '}
+                    {selected.ai_review.output.evidence_refs.join(', ') ||
+                      'Structured measurements only'}
+                  </p>
+                </>
+              ) : (
+                <p>
+                  AI review unavailable (
+                  {selected.ai_review?.error_code ??
+                    'not reviewed or review budget exhausted'}
+                  ). Deterministic QC remains authoritative. Check the local
+                  model status or review the evidence manually.
+                </p>
+              )}
+              <p>
+                AI does not change measurements or disposition. Use the operator
+                controls below to record your decision.
+              </p>
+            </section>
+          )}
           <details>
             <summary>Disposition history</summary>
             {selected.feedback?.map((entry, index) => (

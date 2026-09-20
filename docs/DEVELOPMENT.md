@@ -1,6 +1,7 @@
 # MediaQC development setup
 
-The active implementation is Phase 7 of `MASTER_SPEC.md`: reports.
+The active implementation is Phase 8 of `MASTER_SPEC.md`: optional local AI.
+See [Phase 8](PHASE_8.md) for the embedded provider contract and validation.
 See [Phase 7](PHASE_7.md) for offline HTML/PDF export and validation.
 See [Phase 6](PHASE_6.md) for evidence, dispositions, IPC, and validation.
 See [Phase 5](PHASE_5.md) for video algorithms, profiles, fixtures and the 22 quality gates.

@@ -10,6 +10,7 @@ export interface Progress {
   message: string;
 }
 export interface Run {
+  ai_mode?: 'OFF' | 'LOCAL';
   media?: {
     file_name: string;
     duration_seconds: number | null;
@@ -44,6 +45,21 @@ export interface Run {
   total?: number;
 }
 export interface Finding {
+  ai_review?: {
+    status: 'COMPLETED' | 'UNAVAILABLE';
+    error_code: string | null;
+    model_id: string | null;
+    model_version: string | null;
+    prompt_version: string;
+    created_at: string;
+    output: {
+      classification: string;
+      confidence: number;
+      summary: string;
+      recommended_action: 'REVIEW' | 'LIKELY_VALID' | 'LIKELY_FALSE_POSITIVE';
+      evidence_refs: string[];
+    } | null;
+  };
   feedback?: {
     previous_disposition: string;
     new_disposition: string;
@@ -81,6 +97,11 @@ export interface AnalysisEvent {
 const call = <T>(method: string, params: object) =>
   invoke<T>('engine_request', { method, params });
 export const jobs = {
+  capabilities: () =>
+    call<{ ai: { local_available: boolean; reason?: string | null } }>(
+      'system.capabilities',
+      {},
+    ),
   finding: (finding_id: string) => call<Finding>('finding.get', { finding_id }),
   disposition: (finding_id: string, disposition: string, note: string) =>
     call<Finding>('finding.set_disposition', { finding_id, disposition, note }),
@@ -102,13 +123,18 @@ export const jobs = {
       analysis_run_id,
       format,
     }),
-  start: (project_id: string, media_asset_id: string, profile: Profile) =>
+  start: (
+    project_id: string,
+    media_asset_id: string,
+    profile: Profile,
+    ai_mode: 'OFF' | 'LOCAL' = 'OFF',
+  ) =>
     call<{ analysis_run_id: string; status: string }>('analysis.start', {
       project_id,
       media_asset_id,
       profile_key: profile.profile_key,
       profile_version: profile.version,
-      ai_mode: 'OFF',
+      ai_mode,
     }),
   get: (analysis_run_id: string) =>
     call<Run>('analysis.get', { analysis_run_id }),

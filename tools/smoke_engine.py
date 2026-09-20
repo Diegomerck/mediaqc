@@ -82,6 +82,10 @@ def smoke(executable: Path) -> None:
                 assert response["request_id"] == request_id and response["ok"] is True
                 if method == "system.ping":
                     assert response["result"] == {"pong": True}
+                if method == "system.capabilities":
+                    assert response["result"]["ai"]["local_available"] is False
+                    assert response["result"]["ai"]["provider"] is None
+                    assert response["result"]["schema_version"] == 2
                 if index in (0, 1, 10001):
                     print(json.dumps(response))
             assert process.wait(timeout=5) == 0

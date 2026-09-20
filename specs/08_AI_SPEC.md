@@ -129,3 +129,37 @@ Any library with optional telemetry/download behavior must be configured to prev
 - Removing model files does not break core launch/analysis.
 - AI output never mutates raw detector measurements.
 - AI suggestions require explicit operator action to affect disposition.
+
+## 12. Phase 8 embedded-provider contract
+
+Phase 8 uses a trusted embedded provider adapter with local compatibility and
+structured-review operations. No external runtime service, HTTP server, model
+manager, cloud API, automatic download, or dynamic project-provided code is used.
+No production provider or weights are selected in Phase 8; without them the
+engine reports local capability unavailable and the UI disables LOCAL.
+Production runtime/model selection and bundling remain Phase 9 decisions.
+
+The default mode is OFF. LOCAL is an explicit per-analysis choice. Saved retries
+preserve that choice. A model disappearing after selection degrades to unavailable
+AI review while deterministic analysis continues. OFF never invokes the provider.
+
+Provider calls run in a terminable isolated process. Compatibility checks have a
+3-second deadline. Reviews are sequential, at most 20 findings per run, with a
+30-second per-review deadline and 120-second total review budget. Input is at most
+1200 KiB; output is at most 8 KiB and 512 requested output tokens. Future embedded
+adapters must enforce model/context memory budgets and must not spawn children
+or make network requests. These are resource limits, not QC thresholds.
+
+Input contains copied detector measurements/thresholds, detector identity/version,
+finding ID and deterministic interval, and up to three verified evidence PNGs with
+their IDs/types/intervals. It excludes source paths/files, arbitrary media tags,
+operator notes, and other project data. Missing/stale evidence makes the review
+unavailable. Text-only explanations may use structured measurements when no PNG
+references exist. Model output must match schema 1.0.0, the requested finding and
+installed model identity, finite confidence in [0,1], bounded nonempty text, and
+only supplied evidence references. Recommendations never set dispositions.
+
+Migration 002 in the database specification defines separate `ai_reviews` storage.
+Saved reviews are returned with findings and shown as advisory in the inspector,
+including model/template provenance. Unavailable or unreviewed AI is explicit.
+Phase 8 does not change deterministic report exports.

@@ -7,6 +7,7 @@ import type { Project } from '../src/projects';
 vi.mock('../src/jobs', () => ({
   jobs: {
     profiles: vi.fn(),
+    capabilities: vi.fn(),
     start: vi.fn(),
     get: vi.fn(),
     cancel: vi.fn(),
@@ -64,6 +65,9 @@ const run: Run = {
 let eventCallback: (event: AnalysisEvent) => void;
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(jobs.capabilities).mockResolvedValue({
+    ai: { local_available: false },
+  });
   vi.mocked(jobs.profiles).mockResolvedValue({ profiles: [profile] });
   vi.mocked(jobs.start).mockResolvedValue({
     analysis_run_id: 'run',
@@ -95,7 +99,7 @@ test('valid selection starts with AI off, remains responsive and displays actual
       .hasAttribute('disabled'),
   ).toBe(true);
   await selectAndStart();
-  expect(jobs.start).toHaveBeenCalledWith('project', 'asset', profile);
+  expect(jobs.start).toHaveBeenCalledWith('project', 'asset', profile, 'OFF');
   expect(screen.getByRole('progressbar').getAttribute('value')).toBe('0.4');
   fireEvent.click(screen.getByRole('button', { name: 'Cancel run' }));
   expect(jobs.cancel).toHaveBeenCalledWith('run');
@@ -143,4 +147,34 @@ test('start errors are visible and allow another attempt', async () => {
       .getByRole('button', { name: 'Start analysis' })
       .hasAttribute('disabled'),
   ).toBe(false);
+});
+
+test('Phase 8 LOCAL is disabled without installed capability', async () => {
+  render(<AnalysisView project={project} onActive={vi.fn()} />);
+  await screen.findByText(/No compatible embedded model installed/u);
+  expect(
+    screen.getByRole('option', { name: 'LOCAL' }).hasAttribute('disabled'),
+  ).toBe(true);
+  expect(screen.getByLabelText<HTMLSelectElement>('AI mode').value).toBe('OFF');
+});
+
+test('Phase 8 compatible embedded capability enables explicit LOCAL selection', async () => {
+  vi.mocked(jobs.capabilities).mockResolvedValue({
+    ai: { local_available: true },
+  });
+  render(<AnalysisView project={project} onActive={vi.fn()} />);
+  await screen.findByText(/Compatible embedded model available/u);
+  fireEvent.change(screen.getByLabelText('AI mode'), {
+    target: { value: 'LOCAL' },
+  });
+  await selectAndStart();
+  expect(jobs.start).toHaveBeenCalledWith('project', 'asset', profile, 'LOCAL');
+});
+
+test('Phase 8 capability failure leaves deterministic analysis usable', async () => {
+  vi.mocked(jobs.capabilities).mockRejectedValue(new Error('Unavailable'));
+  render(<AnalysisView project={project} onActive={vi.fn()} />);
+  await screen.findByText(/Local model status unavailable/u);
+  await selectAndStart();
+  expect(jobs.start).toHaveBeenCalledWith('project', 'asset', profile, 'OFF');
 });

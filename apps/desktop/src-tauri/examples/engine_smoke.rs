@@ -189,6 +189,50 @@ fn main() {
                 println!(
                     "PASS: Phase 4 packaged audio detectors, FAIL aggregation, finding IPC, evidence, restart and legacy integration"
                 );
+                let capability = controller
+                    .request("system.capabilities".into(), serde_json::json!({}))
+                    .unwrap();
+                assert_eq!(capability["ai"]["local_available"], false);
+                let local = controller.request("analysis.start".into(), serde_json::json!({
+                    "project_id": project["id"], "media_asset_id": inspected["media_asset_id"],
+                    "profile_key": "general_technical_qc", "profile_version": version, "ai_mode": "LOCAL"
+                })).unwrap();
+                let reviewed = wait_run(&controller, &local["analysis_run_id"]);
+                assert_eq!(reviewed["status"], "COMPLETED");
+                assert_eq!(reviewed["overall_result"], failed["overall_result"]);
+                let items = controller.request("finding.list".into(), serde_json::json!({
+                    "analysis_run_id": local["analysis_run_id"], "detector_id": "audio.clipping"
+                })).unwrap();
+                let advisory = &items["findings"][0];
+                for field in [
+                    "measurements",
+                    "threshold",
+                    "severity",
+                    "start_time_seconds",
+                    "end_time_seconds",
+                ] {
+                    assert_eq!(advisory[field], detail[field]);
+                }
+                assert_eq!(advisory["ai_review"]["status"], "UNAVAILABLE");
+                assert_eq!(advisory["disposition"], "OPEN");
+                controller.stop().unwrap();
+                controller.start().unwrap();
+                controller
+                    .request(
+                        "project.open".into(),
+                        serde_json::json!({"project_file": project["project_file"]}),
+                    )
+                    .unwrap();
+                let reopened = controller
+                    .request(
+                        "finding.get".into(),
+                        serde_json::json!({"finding_id": advisory["id"]}),
+                    )
+                    .unwrap();
+                assert_eq!(reopened["ai_review"], advisory["ai_review"]);
+                println!(
+                    "PASS: Phase 8 packaged unavailable model, deterministic equivalence, separate AI persistence and restart"
+                );
             }
             assert!(
                 events

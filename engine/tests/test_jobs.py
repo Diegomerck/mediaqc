@@ -278,7 +278,7 @@ def test_disabled_and_missing_detectors_never_fake_qc_pass(
     "overrides,code",
     [
         ({"profile_key": "missing"}, "PROFILE_NOT_FOUND"),
-        ({"ai_mode": "LOCAL"}, "INVALID_REQUEST"),
+        ({"ai_mode": "CLOUD"}, "INVALID_REQUEST"),
         ({"media_asset_id": "missing"}, "MEDIA_NOT_FOUND"),
         ({"extra": "x"}, "INVALID_REQUEST"),
     ],

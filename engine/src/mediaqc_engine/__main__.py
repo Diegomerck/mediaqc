@@ -3,6 +3,7 @@
 import argparse
 import logging
 import sys
+from multiprocessing import freeze_support
 from pathlib import Path
 
 from mediaqc_engine.ipc.server import serve
@@ -24,4 +25,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    freeze_support()
     main()
