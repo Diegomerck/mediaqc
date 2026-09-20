@@ -40,6 +40,11 @@ export default function AnalysisView({
   const [run, setRun] = useState<Run | null>(null);
   const [history, setHistory] = useState(project.analysis_runs ?? []);
   const [busy, setBusy] = useState(false);
+  const [aiMode, setAiMode] = useState<'OFF' | 'LOCAL'>('OFF');
+  const [localAvailable, setLocalAvailable] = useState(false);
+  const [modelStatus, setModelStatus] = useState(
+    'Checking local model availability',
+  );
   const [failure, setFailure] = useState<EngineError | null>(null);
   const [clock, setClock] = useState(Date.now);
   const active = !!runId && (!run || !terminal(run.status));
@@ -51,6 +56,24 @@ export default function AnalysisView({
   }, [active, onActive]);
   useEffect(() => {
     let disposed = false;
+    void jobs
+      .capabilities()
+      .then(({ ai }) => {
+        if (!disposed) {
+          setLocalAvailable(ai.local_available);
+          setModelStatus(
+            ai.local_available
+              ? 'Compatible embedded model available'
+              : (ai.reason ?? 'No compatible embedded model installed'),
+          );
+        }
+      })
+      .catch(() => {
+        if (!disposed)
+          setModelStatus(
+            'Local model status unavailable. Deterministic QC remains available.',
+          );
+      });
     void jobs
       .profiles()
       .then((value) => {
@@ -121,7 +144,7 @@ export default function AnalysisView({
           kind === 'retry'
             ? await jobs.retry(runId)
             : profile
-              ? await jobs.start(project.id, asset, profile)
+              ? await jobs.start(project.id, asset, profile, aiMode)
               : null;
         if (!next) return;
         setRun(null);
@@ -194,7 +217,29 @@ export default function AnalysisView({
           ))}
         </select>
       </label>
-      <p>AI: OFF · Project: {project.name}</p>
+      <label>
+        AI mode
+        <select
+          value={aiMode}
+          disabled={active || busy}
+          onChange={(event) => {
+            setAiMode(
+              event.target.value === 'LOCAL' && localAvailable
+                ? 'LOCAL'
+                : 'OFF',
+            );
+          }}
+        >
+          <option value="OFF">OFF</option>
+          <option value="LOCAL" disabled={!localAvailable}>
+            LOCAL
+          </option>
+        </select>
+      </label>
+      <p>{modelStatus}. AI suggestions are advisory.</p>
+      <p>
+        AI: {aiMode} · Project: {project.name}
+      </p>
       <div className="actions">
         <button
           disabled={active || busy || !asset || !selectedProfile}

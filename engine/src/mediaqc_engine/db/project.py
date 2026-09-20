@@ -10,6 +10,7 @@ from mediaqc_engine import __version__
 from mediaqc_engine.app.errors import AppError
 
 SCHEMA = Path(__file__).with_name("migration_001.sql")
+AI_SCHEMA = Path(__file__).with_name("migration_002.sql")
 FOLDERS = (
     "evidence/audio",
     "evidence/video",
@@ -85,7 +86,7 @@ class Project:
                 version = reader.execute(
                     "SELECT value FROM schema_meta WHERE key='schema_version'"
                 ).fetchone()
-                if version != ("1",) or reader.execute(
+                if version not in (("1",), ("2",)) or reader.execute(
                     "SELECT count(*) FROM projects"
                 ).fetchone() != (1,):
                     raise AppError(
@@ -94,6 +95,8 @@ class Project:
                     )
                 with closing(sqlite3.connect(":memory:")) as expected:
                     expected.executescript(SCHEMA.read_text(encoding="utf-8"))
+                    if version == ("2",):
+                        expected.executescript(AI_SCHEMA.read_text(encoding="utf-8"))
                     tables = expected.execute(
                         "SELECT name FROM sqlite_master WHERE type='table'"
                     ).fetchall()
@@ -107,11 +110,29 @@ class Project:
                         ):
                             raise AppError(
                                 "PROJECT_INVALID",
-                                "Project schema does not match version 1",
+                                "Project schema does not match its declared version",
                             )
                 if reader.execute("PRAGMA quick_check").fetchone() != ("ok",):
                     raise AppError("PROJECT_INVALID", "Project database is corrupt")
             connection = sqlite3.connect(path.as_uri() + "?mode=rw", uri=True)
+            if version == ("1",):
+                # SQLite backup includes committed WAL content; keep it for recovery.
+                backup = path.with_name("project.schema-v1.sqlite.bak")
+                try:
+                    if not backup.exists():
+                        with closing(sqlite3.connect(backup)) as destination:
+                            connection.backup(destination)
+                    connection.executescript(
+                        "BEGIN IMMEDIATE;\n"
+                        + AI_SCHEMA.read_text(encoding="utf-8")
+                        + "\nUPDATE schema_meta SET value='2' "
+                        "WHERE key='schema_version';"
+                    )
+                    connection.commit()
+                except BaseException:
+                    connection.rollback()
+                    connection.close()
+                    raise
             connection.execute("PRAGMA foreign_keys = ON")
             connection.execute("PRAGMA journal_mode = WAL")
             connection.execute("PRAGMA synchronous = NORMAL")

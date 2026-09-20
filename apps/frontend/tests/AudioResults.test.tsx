@@ -141,3 +141,61 @@ test('shows video findings and project evidence with video detector states', () 
   expect(screen.getByText(/mean_luma_normalized/u)).toBeTruthy();
   expect(screen.getByText(/evidence\/video\/run\/black.json/u)).toBeTruthy();
 });
+
+test('Phase 8 advisory review preserves raw results and requires operator disposition', () => {
+  render(
+    <AudioResults
+      run={{
+        ...run,
+        ai_mode: 'LOCAL',
+        findings: [
+          {
+            ...finding,
+            ai_review: {
+              status: 'COMPLETED',
+              error_code: null,
+              model_id: 'embedded-fixture',
+              model_version: '1',
+              prompt_version: '1.0.0',
+              created_at: '2026-09-19T12:00:00Z',
+              output: {
+                classification: 'AMBIGUOUS',
+                confidence: 0.5,
+                summary: 'Inspect this evidence.',
+                recommended_action: 'LIKELY_FALSE_POSITIVE',
+                evidence_refs: ['evidence'],
+              },
+            },
+          },
+        ],
+      }}
+    />,
+  );
+  expect(
+    screen.getByRole('region', { name: 'Optional local AI review' }),
+  ).toBeTruthy();
+  expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();
+  expect(screen.getByText(/4800/u)).toBeTruthy();
+  expect(
+    screen.getByRole('button', { name: 'Mark False Positive' }),
+  ).toBeTruthy();
+  expect(screen.getByText(/embedded-fixture/u)).toBeTruthy();
+  expect(
+    screen.getByText(/AI does not change measurements or disposition/u),
+  ).toBeTruthy();
+});
+
+test('Phase 8 unavailable review is explicit without hiding deterministic findings', () => {
+  render(<AudioResults run={{ ...run, ai_mode: 'LOCAL' }} />);
+  expect(screen.getByText(/AI review unavailable/u)).toBeTruthy();
+  expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();
+  expect(screen.getByText(/4800/u)).toBeTruthy();
+});
+
+test('Phase 8 OFF preserves deterministic view without AI results', () => {
+  render(<AudioResults run={{ ...run, ai_mode: 'OFF' }} />);
+  expect(
+    screen.queryByRole('region', { name: 'Optional local AI review' }),
+  ).toBeNull();
+  expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();
+});

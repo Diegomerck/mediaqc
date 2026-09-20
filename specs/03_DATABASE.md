@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0  
 **Database:** SQLite  
-**Schema version:** 1
+**Schema version:** 2
 
 ## 1. Principles
 
@@ -307,3 +307,33 @@ Deleting findings manually is not required; disposition is preferred for auditab
 - Historical run profile snapshot remains unchanged after profile editing.
 - Deleting a media asset from DB cascades run records only after explicit user action.
 - Source file is untouched by DB cleanup.
+
+## 10. Phase 8 migration 002 — advisory AI reviews
+
+Version 1 projects migrate transactionally to version 2 after canonical schema
+validation. A SQLite backup, including committed WAL data, is retained as
+`project.schema-v1.sqlite.bak` before migration. Failure rolls back the migration.
+Existing deterministic records are unchanged.
+
+```sql
+CREATE TABLE ai_reviews (
+    id TEXT PRIMARY KEY,
+    finding_id TEXT NOT NULL REFERENCES findings(id) ON DELETE CASCADE,
+    model_id TEXT,
+    model_version TEXT,
+    prompt_version TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('COMPLETED', 'UNAVAILABLE')),
+    error_code TEXT,
+    output_json TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE(finding_id)
+);
+
+CREATE INDEX idx_ai_reviews_finding ON ai_reviews(finding_id);
+```
+
+Each reviewed finding has one separate review record. Unavailable reviews have
+a null output and an explicit error code; model identity may be null when absent.
+Output JSON uses the AI specification schema; prompt version and UTC creation
+time are stored separately. Unreviewed findings beyond the bounded review budget
+have no row and the UI explicitly labels their review unavailable.

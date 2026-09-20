@@ -96,7 +96,7 @@ def handle_line(
             if method == "system.shutdown" and projects is not None:
                 projects.jobs.shutdown()
             result = (
-                capabilities()
+                capabilities(projects.jobs.ai_provider if projects else None)
                 if method == "system.capabilities"
                 else {"pong": True}
                 if method == "system.ping"

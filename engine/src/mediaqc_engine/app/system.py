@@ -2,22 +2,22 @@
 
 import sys
 
-from mediaqc_engine import __version__
+from mediaqc_engine import __version__, ai
 from mediaqc_engine.detectors import registry
 from mediaqc_engine.media.tools import MediaTools
 
 PROTOCOL_VERSION = "1.0"
 
 
-def capabilities() -> dict[str, object]:
+def capabilities(provider: ai.Provider | None = None) -> dict[str, object]:
     return {
         "engine_version": __version__,
         "protocol_version": PROTOCOL_VERSION,
-        "schema_version": 1,
+        "schema_version": 2,
         "platform": "windows" if sys.platform == "win32" else sys.platform,
         "ffmpeg": MediaTools().capability("ffmpeg"),
         "ffprobe": MediaTools().capability("ffprobe"),
-        "ai": {"local_available": False, "provider": None},
+        "ai": ai.capability(provider),
         "detectors": [
             {
                 "id": detector.detector_id,

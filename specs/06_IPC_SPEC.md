@@ -87,7 +87,7 @@ Result:
 {
   "engine_version": "0.1.0",
   "protocol_version": "1.0",
-  "schema_version": 1,
+  "schema_version": 2,
   "platform": "windows",
   "ffmpeg": {
     "available": true,
@@ -428,3 +428,20 @@ Engine on shutdown:
 - Debug logs never corrupt stdout JSON stream.
 - Engine crash is surfaced to UI.
 - Cancellation produces terminal event and no owned FFmpeg remains.
+
+## 11. Phase 8 additive AI fields
+
+`system.capabilities.ai` retains `local_available` and `provider` and adds nullable
+`model_id`, `model_version`, and `reason`. The desktop may refresh capabilities
+through the existing request envelope. No provider/model paths are accepted.
+`analysis.start.ai_mode` accepts OFF or LOCAL. LOCAL capability controls UI
+selection; an unavailable provider at execution time does not reject core QC.
+`analysis.retry` preserves the saved mode. `analysis.get` includes saved `ai_mode`.
+
+Finding responses may include `ai_review`: `id`, `finding_id`, nullable `model_id`
+and `model_version`, `prompt_version`, `status` (COMPLETED or UNAVAILABLE), nullable
+`error_code`, UTC `created_at`, and `output` (the AI schema object or null).
+No row means not reviewed; LOCAL results must show this explicitly. OFF adds no
+review object. Existing envelopes, deterministic fields, events and reports retain
+their semantics. No AI-specific public command or settings persistence is added;
+AI mode is selected per analysis and saved on the run.

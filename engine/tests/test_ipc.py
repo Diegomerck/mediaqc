@@ -108,11 +108,17 @@ def test_capabilities_are_truthful_and_versioned() -> None:
     assert response["result"] == {
         "engine_version": "0.0.0",
         "protocol_version": "1.0",
-        "schema_version": 1,
+        "schema_version": 2,
         "platform": "windows" if sys.platform == "win32" else sys.platform,
         "ffmpeg": {"available": False, "version": None},
         "ffprobe": {"available": False, "version": None},
-        "ai": {"local_available": False, "provider": None},
+        "ai": {
+            "local_available": False,
+            "provider": None,
+            "model_id": None,
+            "model_version": None,
+            "reason": "No embedded provider/model installed",
+        },
         "detectors": [
             {
                 "id": identifier,

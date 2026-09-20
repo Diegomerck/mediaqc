@@ -269,3 +269,12 @@ V1 report/evidence output destinations are separate from source media.
 - Offline mode produces no missing-cloud UX.
 - Unsupported media error does not lose project state.
 - UI stays responsive during full analysis.
+
+## 18. Phase 8 local AI controls
+
+The analysis form exposes OFF (default), capability-gated LOCAL, and current local
+model status. The same status supports AI diagnostics; mode is per run, not a
+global persisted default. The inspector displays saved advisory review text,
+classification/confidence, recommendation, model/template identity, UTC creation
+time and evidence references. Missing/failed reviews are explicit. OFF leaves
+the deterministic results view unchanged. Operator disposition remains manual.

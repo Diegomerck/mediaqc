@@ -41,6 +41,7 @@ def create(
     asset_id: str,
     profile: dict[str, object],
     fingerprint: object,
+    ai_mode: str = "OFF",
 ) -> str:
     identifier = str(uuid4())
     with db:
@@ -66,7 +67,7 @@ def create(
                 __version__,
                 "1.0",
                 fingerprint,
-                "OFF",
+                ai_mode,
                 now(),
             ),
         )

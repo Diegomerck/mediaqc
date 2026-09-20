@@ -24,7 +24,7 @@
     },
     {
       "path": "specs/03_DATABASE.md",
-      "bytes": 8171
+      "bytes": 9344
     },
     {
       "path": "specs/04_DETECTOR_SPEC.md",
@@ -36,15 +36,15 @@
     },
     {
       "path": "specs/06_IPC_SPEC.md",
-      "bytes": 7825
+      "bytes": 8885
     },
     {
       "path": "specs/07_UI_SPEC.md",
-      "bytes": 4790
+      "bytes": 5301
     },
     {
       "path": "specs/08_AI_SPEC.md",
-      "bytes": 3135
+      "bytes": 5307
     },
     {
       "path": "specs/09_TESTING_SPEC.md",

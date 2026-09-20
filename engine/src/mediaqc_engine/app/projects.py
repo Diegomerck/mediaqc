@@ -4,7 +4,7 @@ import logging
 import sqlite3
 from pathlib import Path
 
-from mediaqc_engine import evidence, reports
+from mediaqc_engine import ai, evidence, reports
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.db import findings
 from mediaqc_engine.db.project import Project, absolute
@@ -38,13 +38,14 @@ class Projects:
         tools: MediaTools | None = None,
         emit: EventSink = lambda event, data: None,
         state_directory: Path | None = None,
+        ai_provider: ai.Provider | None = None,
     ):
         self.tools = tools if tools is not None else MediaTools()
         self.project: Project | None = None
         self.lease: Lease | None = None
         journal = Journal(state_directory)
         journal.recover()
-        self.jobs = JobManager(emit, journal)
+        self.jobs = JobManager(emit, journal, ai_provider=ai_provider)
 
     def close(self) -> None:
         self.jobs.shutdown()

@@ -8,7 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
-from mediaqc_engine import evidence
+from mediaqc_engine import ai, evidence
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.db import findings, runs
 from mediaqc_engine.db.project import Project, now
@@ -32,8 +32,10 @@ class JobManager:
         journal: Journal,
         detectors: tuple[Detector, ...] | None = None,
         tool_factory: Callable[[], MediaTools] = MediaTools,
+        ai_provider: ai.Provider | None = None,
     ):
         self.emit = emit
+        self.ai_provider = ai_provider
         self.journal = journal
         self.detectors = registry() if detectors is None else detectors
         self.tool_factory = tool_factory
@@ -73,10 +75,15 @@ class JobManager:
                     raise AppError(
                         "PROJECT_NOT_FOUND", "Open the requested project first"
                     )
-                if params["ai_mode"] != "OFF":
-                    raise AppError("INVALID_REQUEST", "Only AI OFF is available")
+                if params["ai_mode"] not in {"OFF", "LOCAL"}:
+                    raise AppError("INVALID_REQUEST", "AI mode must be OFF or LOCAL")
                 profile = profiles.get(params["profile_key"], params["profile_version"])
-                return self.start(project, str(params["media_asset_id"]), profile)
+                return self.start(
+                    project,
+                    str(params["media_asset_id"]),
+                    profile,
+                    str(params["ai_mode"]),
+                )
             identifier = str(params["analysis_run_id"])
             run = runs.fetch(project.connection, identifier)
             if method == "analysis.get":
@@ -104,7 +111,9 @@ class JobManager:
                     )
                 snapshot = json.loads(str(run["qc_profile_snapshot_json"]))
                 profiles.validate(snapshot)
-                return self.start(project, str(run["media_asset_id"]), snapshot)
+                return self.start(
+                    project, str(run["media_asset_id"]), snapshot, str(run["ai_mode"])
+                )
             if run["status"] in runs.TERMINAL:
                 raise AppError("RUN_ALREADY_TERMINAL", "Run has already finished")
             if identifier != self.identifier:
@@ -121,7 +130,11 @@ class JobManager:
             }
 
     def start(
-        self, project: Project, asset_id: str, profile: dict[str, object]
+        self,
+        project: Project,
+        asset_id: str,
+        profile: dict[str, object],
+        ai_mode: str = "OFF",
     ) -> dict[str, object]:
         if (
             self.active
@@ -154,6 +167,7 @@ class JobManager:
             asset_id,
             profile,
             asset["fast_fingerprint_sha256"],
+            ai_mode,
         )
         self.identifier = identifier
         self.token = CancellationToken()
@@ -479,6 +493,14 @@ class JobManager:
                 raise AppError(
                     "MEDIA_UNSUPPORTED", "No enabled audio detector supports this media"
                 )
+            # Optional failures cannot enter the deterministic failure handler.
+            try:
+                ai.review_run(db, path.parent, identifier, self.ai_provider, token)
+            except Exception:
+                LOG.warning(
+                    "run=%s AI unavailable; deterministic QC preserved", identifier
+                )
+            token.check()
             self.finish(project, identifier, "COMPLETED", token)
         except Exception as exc:
             if project is not None:

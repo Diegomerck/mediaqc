@@ -182,6 +182,7 @@ impl Controller {
                 | "finding.set_disposition"
                 | "evidence.read"
                 | "report.generate"
+                | "system.capabilities"
         ) || !params.is_object()
         {
             return Err(Failure::new(
