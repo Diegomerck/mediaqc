@@ -21,6 +21,18 @@ def main() -> None:
             "mediaqc_engine",
             "--collect-data",
             "reportlab",
+            "--copy-metadata",
+            "numpy",
+            "--copy-metadata",
+            "scipy",
+            "--copy-metadata",
+            "opencv-python-headless",
+            "--copy-metadata",
+            "reportlab",
+            "--copy-metadata",
+            "pillow",
+            "--copy-metadata",
+            "charset-normalizer",
             "--hidden-import",
             "scipy.fft",
             "--name",
@@ -43,6 +55,10 @@ def main() -> None:
         raise RuntimeError("Run the developer media:prepare command before building")
     shutil.copytree(
         source, ROOT / "engine/dist/mediaqc-engine/ffmpeg", dirs_exist_ok=True
+    )
+    shutil.copy2(
+        Path(sys.base_prefix) / "LICENSE.txt",
+        ROOT / "engine/dist/mediaqc-engine/PYTHON-LICENSE.txt",
     )
 
 

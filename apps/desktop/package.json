@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "build": "tauri build --no-bundle -- --locked",
+    "build:prepared": "tauri build --no-bundle --config src-tauri/tauri.prepared.conf.json -- --locked",
+    "bundle:release": "tauri bundle --config src-tauri/tauri.release.conf.json --bundles nsis --ci",
     "info": "tauri info"
   },
   "devDependencies": {
