@@ -21,6 +21,7 @@ export default function AudioResults({ run: initial }: { run: Run }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [note, setNote] = useState('');
+  const [technical, setTechnical] = useState(false);
   const [filters, setFilters] = useState({
     severity: '',
     detector: '',
@@ -114,10 +115,6 @@ export default function AudioResults({ run: initial }: { run: Run }) {
         Media: {run.media?.file_name ?? run.media_asset_id} · Run date:{' '}
         {run.started_at ?? 'Not started'}
       </p>
-      <details>
-        <summary>Run profile snapshot</summary>
-        <pre>{run.qc_profile_snapshot_json}</pre>
-      </details>
       <fieldset>
         <legend>
           Filter loaded findings ({findings.length} of{' '}
@@ -143,7 +140,12 @@ export default function AudioResults({ run: initial }: { run: Run }) {
                       ? ['audio.', 'video.']
                       : [...new Set(findings.map((item) => item.detector_id))]
                 ).map((value) => (
-                  <option key={value}>{value}</option>
+                  <option key={value} value={value}>
+                    {key === 'detector'
+                      ? (findings.find((item) => item.detector_id === value)
+                          ?.title ?? value)
+                      : value}
+                  </option>
                 ))}
               </select>
             </label>
@@ -177,7 +179,7 @@ export default function AudioResults({ run: initial }: { run: Run }) {
               {[
                 'Severity',
                 'Time (s)',
-                'Detector',
+                'Media',
                 'Title',
                 'Duration (s)',
                 'Confidence',
@@ -192,7 +194,9 @@ export default function AudioResults({ run: initial }: { run: Run }) {
               <tr key={item.id} aria-selected={selected?.id === item.id}>
                 <td>{item.severity}</td>
                 <td>{item.start_time_seconds?.toFixed(3) ?? 'Whole stream'}</td>
-                <td>{item.detector_id}</td>
+                <td>
+                  {item.detector_id.startsWith('audio.') ? 'Audio' : 'Video'}
+                </td>
                 <td>
                   <button
                     onClick={() => {
@@ -226,22 +230,91 @@ export default function AudioResults({ run: initial }: { run: Run }) {
           <h4>
             {selected.severity} · {selected.title}
           </h4>
-          <p>{selected.description}</p>
-          <p>
-            {selected.detector_id} v{selected.detector_version} · Stream:{' '}
-            {selected.stream_id ?? 'Not applicable'} · {selected.disposition}
-          </p>
+          <p>{selected.explanation?.summary ?? selected.description}</p>
+          {selected.explanation?.comparisons.length ? (
+            selected.explanation.comparisons.map((comparison, index) => (
+              <dl key={index} className="comparison">
+                <dt>{comparison.label} — measured</dt>
+                <dd>
+                  {comparison.measured} {comparison.unit}
+                </dd>
+                {comparison.target !== null && (
+                  <>
+                    <dt>Target</dt>
+                    <dd>
+                      {comparison.target} {comparison.unit}
+                    </dd>
+                  </>
+                )}
+                <dt>Accepted range</dt>
+                <dd>
+                  {comparison.minimum ?? 'No lower limit'} to{' '}
+                  {comparison.maximum ?? 'No upper limit'} {comparison.unit}
+                </dd>
+                {comparison.difference_from_limit !== null && (
+                  <>
+                    <dt>Difference from limit</dt>
+                    <dd>
+                      {comparison.difference_from_limit}{' '}
+                      {comparison.unit === 'LUFS' ? 'LU' : comparison.unit}
+                    </dd>
+                  </>
+                )}
+              </dl>
+            ))
+          ) : (
+            <dl>
+              {Object.entries(selected.measurements)
+                .filter(
+                  ([, value]) => value === null || typeof value !== 'object',
+                )
+                .map(([key, value]) => (
+                  <div key={key}>
+                    <dt>{key.replaceAll('_', ' ')}</dt>
+                    <dd>
+                      {typeof value === 'string' ||
+                      typeof value === 'number' ||
+                      typeof value === 'boolean'
+                        ? String(value)
+                        : 'Unavailable'}
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+          )}
           <p>
             Start: {selected.start_time_seconds ?? 'Whole stream'} · End:{' '}
             {selected.end_time_seconds ?? 'Whole stream'} · Duration:{' '}
             {selected.duration_seconds ?? 'Whole stream'} · Confidence:{' '}
             {selected.confidence ?? 'Not applicable'}
           </p>
-          <h5>Measurements</h5>
-          <pre>{JSON.stringify(selected.measurements, null, 2)}</pre>
-          <h5>Profile thresholds</h5>
-          <pre>{JSON.stringify(selected.threshold, null, 2)}</pre>
-          <EvidenceView key={selected.id} finding={selected} />
+          {!selected.explanation?.comparisons.length && (
+            <dl>
+              {Object.entries(selected.threshold)
+                .filter(
+                  ([key, value]) =>
+                    !['enabled', 'severity'].includes(key) &&
+                    (value === null || typeof value !== 'object'),
+                )
+                .map(([key, value]) => (
+                  <div key={key}>
+                    <dt>{key.replaceAll('_', ' ')}</dt>
+                    <dd>
+                      {typeof value === 'string' ||
+                      typeof value === 'number' ||
+                      typeof value === 'boolean'
+                        ? String(value)
+                        : 'Not configured'}
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+          )}
+          <EvidenceView
+            key={selected.id}
+            finding={selected}
+            technical={technical}
+          />
           {run.ai_mode === 'LOCAL' && (
             <section aria-label="Optional local AI review">
               <h5>Local AI review — advisory</h5>
@@ -253,17 +326,6 @@ export default function AudioResults({ run: initial }: { run: Run }) {
                     {selected.ai_review.output.classification} · Confidence:{' '}
                     {selected.ai_review.output.confidence} · Recommendation:{' '}
                     {selected.ai_review.output.recommended_action}
-                  </p>
-                  <p>
-                    Model: {selected.ai_review.model_id}{' '}
-                    {selected.ai_review.model_version} · Template:{' '}
-                    {selected.ai_review.prompt_version} ·{' '}
-                    {selected.ai_review.created_at}
-                  </p>
-                  <p>
-                    Evidence references:{' '}
-                    {selected.ai_review.output.evidence_refs.join(', ') ||
-                      'Structured measurements only'}
                   </p>
                 </>
               ) : (
@@ -323,31 +385,69 @@ export default function AudioResults({ run: initial }: { run: Run }) {
         </section>
       )}
       {error && <p role="alert">{error}</p>}
-      {(['audio.', 'video.'] as const).map((kind) => (
-        <section
-          key={kind}
-          aria-label={`${kind === 'audio.' ? 'Audio' : 'Video'} detector results`}
-        >
-          <h5>{kind === 'audio.' ? 'Audio' : 'Video'} detectors</h5>
-          {run.detector_states
-            .filter((detector) => detector.detector_id.startsWith(kind))
-            .map((detector) => (
-              <details key={detector.id}>
-                <summary>
-                  {detector.detector_id} measurements · {detector.status} ·
-                  Findings: {detector.finding_count ?? 0} · Worst severity:{' '}
-                  {detector.worst_severity ?? 'None'}
-                </summary>
-                {detector.error_message && (
-                  <p role="alert">{detector.error_message}</p>
-                )}
-                <pre>
-                  {detector.metrics_json ?? 'No measurements available'}
-                </pre>
-              </details>
-            ))}
-        </section>
-      ))}
+      <details
+        onToggle={(event) => {
+          setTechnical(event.currentTarget.open);
+        }}
+      >
+        <summary>Technical Details</summary>
+        <p>
+          Run: {run.id} · Asset: {run.media_asset_id}
+        </p>
+        <h5>Run profile snapshot</h5>
+        <pre>{run.qc_profile_snapshot_json}</pre>
+        {selected && (
+          <>
+            <p>
+              {selected.detector_id} v{selected.detector_version} · Finding:{' '}
+              {selected.id} · Stream: {selected.stream_id ?? 'Not applicable'}
+            </p>
+            <h5>Measurements</h5>
+            <pre>{JSON.stringify(selected.measurements, null, 2)}</pre>
+            <h5>Profile thresholds</h5>
+            <pre>{JSON.stringify(selected.threshold, null, 2)}</pre>
+            <h5>Evidence metadata</h5>
+            <pre>
+              {JSON.stringify(
+                { metadata: selected.metadata, evidence: selected.evidence },
+                null,
+                2,
+              )}
+            </pre>
+            {selected.ai_review && (
+              <>
+                <h5>AI diagnostic metadata</h5>
+                <pre>{JSON.stringify(selected.ai_review, null, 2)}</pre>
+              </>
+            )}
+          </>
+        )}
+        {(['audio.', 'video.'] as const).map((kind) => (
+          <section
+            key={kind}
+            aria-label={`${kind === 'audio.' ? 'Audio' : 'Video'} detector results`}
+          >
+            <h5>{kind === 'audio.' ? 'Audio' : 'Video'} detectors</h5>
+            {run.detector_states
+              .filter((detector) => detector.detector_id.startsWith(kind))
+              .map((detector) => (
+                <details key={detector.id}>
+                  <summary>
+                    {detector.detector_id} measurements · {detector.status} ·
+                    Findings: {detector.finding_count ?? 0} · Worst severity:{' '}
+                    {detector.worst_severity ?? 'None'}
+                  </summary>
+                  {detector.error_message && (
+                    <p role="alert">{detector.error_message}</p>
+                  )}
+                  <pre>
+                    {detector.metrics_json ?? 'No measurements available'}
+                  </pre>
+                </details>
+              ))}
+          </section>
+        ))}
+      </details>
     </section>
   );
 }

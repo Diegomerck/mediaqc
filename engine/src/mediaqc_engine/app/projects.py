@@ -6,9 +6,11 @@ from pathlib import Path
 
 from mediaqc_engine import ai, evidence, reports
 from mediaqc_engine.app.errors import AppError
-from mediaqc_engine.db import findings
+from mediaqc_engine.db import batches, findings
 from mediaqc_engine.db.project import Project, absolute
 from mediaqc_engine.db.runs import recover
+from mediaqc_engine.jobs.batch_manager import METHODS as BATCH_METHODS
+from mediaqc_engine.jobs.batch_manager import BatchManager
 from mediaqc_engine.jobs.manager import METHODS as JOB_METHODS
 from mediaqc_engine.jobs.manager import EventSink, JobManager
 from mediaqc_engine.jobs.recovery import Journal, Lease
@@ -17,19 +19,23 @@ from mediaqc_engine.media.tools import MediaTools
 from mediaqc_engine.qc import profiles
 
 LOG = logging.getLogger(__name__)
-METHODS = {
-    "project.create",
-    "project.open",
-    "project.get",
-    "media.inspect",
-    "profile.list",
-    "profile.get",
-    "finding.list",
-    "finding.get",
-    "finding.set_disposition",
-    "evidence.read",
-    "report.generate",
-} | JOB_METHODS
+METHODS = (
+    {
+        "project.create",
+        "project.open",
+        "project.get",
+        "media.inspect",
+        "profile.list",
+        "profile.get",
+        "finding.list",
+        "finding.get",
+        "finding.set_disposition",
+        "evidence.read",
+        "report.generate",
+    }
+    | JOB_METHODS
+    | BATCH_METHODS
+)
 
 
 class Projects:
@@ -46,8 +52,10 @@ class Projects:
         journal = Journal(state_directory)
         journal.recover()
         self.jobs = JobManager(emit, journal, ai_provider=ai_provider)
+        self.batches = BatchManager(self.jobs, emit)
 
     def close(self) -> None:
+        self.batches.shutdown(self.project)
         self.jobs.shutdown()
         self.close_project()
 
@@ -60,6 +68,28 @@ class Projects:
             self.lease = None
 
     def dispatch(self, method: str, params: dict[str, object]) -> dict[str, object]:
+        if self.batches.persistence_failure and method in {
+            "analysis.start",
+            "analysis.retry",
+            "media.inspect",
+        }:
+            self.batches.available()
+        if method in BATCH_METHODS:
+            if self.project is None:
+                raise AppError("PROJECT_NOT_FOUND", "Open a project first")
+            return self.batches.dispatch(self.project, method, params)
+        if self.batches.active and method in {
+            "project.create",
+            "project.open",
+            "media.inspect",
+            "analysis.start",
+            "analysis.retry",
+            "analysis.cancel",
+            "report.generate",
+        }:
+            raise AppError(
+                "BATCH_CONFLICT", "Use batch controls or finish active batch work first"
+            )
         if method == "report.generate":
             if self.project is None:
                 raise AppError("PROJECT_NOT_FOUND", "Open a project first")
@@ -68,7 +98,19 @@ class Projects:
             if self.project is None:
                 raise AppError("PROJECT_NOT_FOUND", "Open a project first")
             if method == "finding.set_disposition":
-                return findings.set_disposition(self.project.connection, params)
+                value = findings.set_disposition(self.project.connection, params)
+                owner = self.project.connection.execute(
+                    "SELECT id,batch_id FROM batch_items WHERE analysis_run_id=?",
+                    (value["analysis_run_id"],),
+                ).fetchone()
+                if owner:
+                    self.batches.notify(
+                        self.project,
+                        owner["batch_id"],
+                        "batch.item_changed",
+                        owner["id"],
+                    )
+                return value
             if set(params) != {"evidence_id"}:
                 raise AppError("INVALID_REQUEST", "Specify evidence_id")
             return evidence.read(
@@ -117,6 +159,13 @@ class Projects:
             "project.get": set(),
             "media.inspect": {"project_id", "absolute_path"},
         }[method]
+        compact = False
+        if method.startswith("project."):
+            params = dict(params)
+            mode = params.pop("summary_mode", "full")
+            if mode not in ("full", "compact"):
+                raise AppError("INVALID_REQUEST", "Unknown project summary mode")
+            compact = mode == "compact"
         if set(params) != expected:
             raise AppError(
                 "INVALID_REQUEST", "Parameters do not match the documented method"
@@ -137,25 +186,31 @@ class Projects:
                     candidate = Project.open(absolute(params["project_file"]))
                 if self.project is not None and candidate.path == self.project.path:
                     candidate.close()
-                    return self.project.summary()
+                    return self.project.summary(compact)
                 try:
                     lease = Lease(candidate.path)
                 except AppError:
                     candidate.close()
                     raise
                 recover(candidate.connection)
+                batches.reconcile(
+                    candidate.connection,
+                    lambda identifier: self.batches.notify(
+                        candidate, identifier, "batch.interrupted"
+                    ),
+                )
                 # A failed open/create never discards the current project.
                 self.close_project()
                 self.project = candidate
                 self.lease = lease
-                return candidate.summary()
+                return candidate.summary(compact)
             project = self.project
             if project is None or (
                 method == "media.inspect" and params["project_id"] != project.id
             ):
                 raise AppError("PROJECT_NOT_FOUND", "Open the requested project first")
             if method == "project.get":
-                return project.summary()
+                return project.summary(compact)
             path = absolute(params["absolute_path"])
             if (
                 path == project.path

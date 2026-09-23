@@ -11,6 +11,7 @@ from mediaqc_engine.app.errors import AppError
 
 SCHEMA = Path(__file__).with_name("migration_001.sql")
 AI_SCHEMA = Path(__file__).with_name("migration_002.sql")
+BATCH_SCHEMA = Path(__file__).with_name("migration_003.sql")
 FOLDERS = (
     "evidence/audio",
     "evidence/video",
@@ -86,7 +87,7 @@ class Project:
                 version = reader.execute(
                     "SELECT value FROM schema_meta WHERE key='schema_version'"
                 ).fetchone()
-                if version not in (("1",), ("2",)) or reader.execute(
+                if version not in (("1",), ("2",), ("3",)) or reader.execute(
                     "SELECT count(*) FROM projects"
                 ).fetchone() != (1,):
                     raise AppError(
@@ -95,8 +96,10 @@ class Project:
                     )
                 with closing(sqlite3.connect(":memory:")) as expected:
                     expected.executescript(SCHEMA.read_text(encoding="utf-8"))
-                    if version == ("2",):
+                    if version in (("2",), ("3",)):
                         expected.executescript(AI_SCHEMA.read_text(encoding="utf-8"))
+                    if version == ("3",):
+                        expected.executescript(BATCH_SCHEMA.read_text(encoding="utf-8"))
                     tables = expected.execute(
                         "SELECT name FROM sqlite_master WHERE type='table'"
                     ).fetchall()
@@ -115,17 +118,19 @@ class Project:
                 if reader.execute("PRAGMA quick_check").fetchone() != ("ok",):
                     raise AppError("PROJECT_INVALID", "Project database is corrupt")
             connection = sqlite3.connect(path.as_uri() + "?mode=rw", uri=True)
-            if version == ("1",):
+            for previous, migration in ((1, AI_SCHEMA), (2, BATCH_SCHEMA)):
+                if int(version[0]) > previous:
+                    continue
                 # SQLite backup includes committed WAL content; keep it for recovery.
-                backup = path.with_name("project.schema-v1.sqlite.bak")
+                backup = path.with_name(f"project.schema-v{previous}.sqlite.bak")
                 try:
                     if not backup.exists():
                         with closing(sqlite3.connect(backup)) as destination:
                             connection.backup(destination)
                     connection.executescript(
                         "BEGIN IMMEDIATE;\n"
-                        + AI_SCHEMA.read_text(encoding="utf-8")
-                        + "\nUPDATE schema_meta SET value='2' "
+                        + migration.read_text(encoding="utf-8")
+                        + f"\nUPDATE schema_meta SET value='{previous + 1}' "
                         "WHERE key='schema_version';"
                     )
                     connection.commit()
@@ -145,8 +150,23 @@ class Project:
     def close(self) -> None:
         self.connection.close()
 
-    def summary(self) -> dict[str, object]:
+    def summary(self, compact: bool = False) -> dict[str, object]:
         project = dict(self.connection.execute("SELECT * FROM projects").fetchone())
+        if compact:
+            return {
+                **project,
+                "project_file": str(self.path),
+                **{
+                    key: self.connection.execute(
+                        f"SELECT COUNT(*) FROM {table}"
+                    ).fetchone()[0]
+                    for key, table in (
+                        ("media_asset_count", "media_assets"),
+                        ("analysis_run_count", "analysis_runs"),
+                        ("batch_count", "batches"),
+                    )
+                },
+            }
         assets = []
         for row in self.connection.execute(
             "SELECT * FROM media_assets ORDER BY created_at, id"

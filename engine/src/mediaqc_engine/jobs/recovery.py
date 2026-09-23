@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 from mediaqc_engine.app.errors import AppError
+from mediaqc_engine.db.batches import reconcile
 from mediaqc_engine.db.project import Project
 from mediaqc_engine.db.runs import recover
 
@@ -58,6 +59,7 @@ class Journal:
                     lease = Lease(path)
                     try:
                         recover(project.connection)
+                        reconcile(project.connection)
                     finally:
                         lease.close()
                 finally:

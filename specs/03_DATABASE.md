@@ -1,8 +1,9 @@
 # 03 — SQLite Database Specification
 
-**Version:** 1.0.0  
+**Version:** 1.1.0
+
 **Database:** SQLite  
-**Schema version:** 2
+**Schema version:** 3 (Phase 10 target; runtime migration not implemented by this amendment)
 
 ## 1. Principles
 
@@ -238,7 +239,7 @@ Application-layer validation SHALL restrict:
 - `PASS`
 - `WARN`
 - `FAIL`
-- NULL before completion
+- NULL for every status other than COMPLETED, including FAILED and CANCELLED
 
 ### `findings.severity`
 - `INFO`
@@ -337,3 +338,118 @@ a null output and an explicit error code; model identity may be null when absent
 Output JSON uses the AI specification schema; prompt version and UTC creation
 time are stored separately. Unreviewed findings beyond the bounded review budget
 have no row and the UI explicitly labels their review unavailable.
+
+## 11. Phase 10 migration 003 — persistent batches
+
+The canonical schema is the base schema plus migrations 002 and 003. Migration 003
+adds the following tables without rewriting existing analysis history. Back up the
+committed SQLite database including WAL as `project.schema-v2.sqlite.bak` before
+migration; never overwrite an existing recovery backup. Validate the prior schema,
+apply transactionally, and set schema version to 3 only after success. Version 1
+projects migrate through 2 first. Failed migration leaves version 2 usable or
+restored. Runtime/capability schema constants change only with implementation.
+
+```sql
+CREATE TABLE batches (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id),
+    name TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK (source_kind IN ('FILE','FOLDER','RETRY')),
+    source_path TEXT,
+    recursive INTEGER NOT NULL DEFAULT 0 CHECK (recursive IN (0,1)),
+    original_batch_id TEXT REFERENCES batches(id),
+    status TEXT NOT NULL CHECK (status IN
+        ('IMPORTING','READY','RUNNING','PAUSING','PAUSED','STOPPING',
+         'STOPPED','COMPLETED','INTERRUPTED','FAILED')),
+    profile_key TEXT,
+    profile_version TEXT,
+    qc_profile_snapshot_json TEXT,
+    ai_mode TEXT NOT NULL DEFAULT 'OFF' CHECK (ai_mode IN ('OFF','LOCAL')),
+    revision INTEGER NOT NULL DEFAULT 0 CHECK (revision >= 0),
+    discovery_completed_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+    error_code TEXT,
+    error_message TEXT
+);
+CREATE INDEX idx_batches_project ON batches(project_id, created_at, id);
+
+CREATE TABLE batch_items (
+    id TEXT PRIMARY KEY,
+    batch_id TEXT NOT NULL REFERENCES batches(id),
+    original_item_id TEXT REFERENCES batch_items(id),
+    absolute_path TEXT NOT NULL,
+    normalized_path_key TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    queue_position INTEGER,
+    status TEXT NOT NULL CHECK (status IN
+        ('PENDING','INSPECTING','RUNNING','COMPLETED','ERROR','CANCELLED','EXCLUDED')),
+    import_size_bytes INTEGER,
+    import_modified_at TEXT,
+    media_asset_id TEXT REFERENCES media_assets(id),
+    analysis_run_id TEXT UNIQUE REFERENCES analysis_runs(id),
+    exclusion_reason TEXT,
+    duplicate_count INTEGER NOT NULL DEFAULT 0 CHECK (duplicate_count >= 0),
+    error_code TEXT,
+    error_message TEXT,
+    log_reference TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+    UNIQUE(batch_id, normalized_path_key),
+    UNIQUE(batch_id, queue_position),
+    CHECK (queue_position IS NULL OR queue_position >= 1),
+    CHECK (status != 'EXCLUDED' OR queue_position IS NULL)
+);
+CREATE INDEX idx_batch_items_state ON batch_items(batch_id, status, queue_position);
+
+CREATE TABLE batch_reports (
+    id TEXT PRIMARY KEY,
+    batch_id TEXT NOT NULL REFERENCES batches(id),
+    report_type TEXT NOT NULL CHECK (report_type IN ('HTML','PDF')),
+    relative_path TEXT NOT NULL UNIQUE,
+    generated_at TEXT NOT NULL,
+    generator_version TEXT NOT NULL,
+    batch_revision INTEGER NOT NULL
+);
+CREATE INDEX idx_batch_reports_batch ON batch_reports(batch_id, generated_at, id);
+```
+
+### Relational and transactional invariants
+
+- No new batch or item deletion workflow is introduced. Foreign keys prevent
+  deleting referenced assets/runs/batches and silently losing batch history.
+- FILE/FOLDER source_path is the selected absolute path; RETRY uses original_batch_id
+  and original_item_id links and may have a null source_path. All linked entities
+  must belong to the same project, validated in repository transactions.
+- profile_key/version/snapshot may be null during import/READY. All three become
+  immutable together on first Start; RETRY inherits the original saved snapshot.
+  Every linked run copies exactly that snapshot and ai_mode.
+- Run creation and item linkage must be atomic. A run belongs to at most one batch
+  item; retries create new items/runs, never overwrite the original link.
+- EXCLUDED rows represent unsupported paths, skipped links/project artifacts, or
+  directory-access problems. exclusion_reason is required; directory errors also
+  retain error_code/message. They never reference an analysis run.
+- Duplicate encounters increment duplicate_count on the retained path record, not
+  a second queued item. Inspectable import summaries expose these counts/reasons.
+- Queue positions may be null during discovery; assign stable contiguous positions
+  to processing members before discovery_completed_at is committed. Excluded rows
+  use stable path/id ordering. No membership edits after discovery completes.
+- A COMPLETED item must link a COMPLETED run; ERROR may have no run (inspection
+  failure) or a FAILED run. CANCELLED may have no run or a CANCELLED run.
+- Derive queue/import counts with indexed SQL. Do not persist a second overall_result
+  on batch_items or serialize the queue into a JSON column. JSON profile snapshots
+  retain their existing reproducibility purpose; core queue fields are relational.
+- Use UTC ISO-8601 metadata, including import mtime at the same precision used by
+  source identity checks. Missing stat fields remain null, never invented zeros.
+- Item transitions and batch revision increments commit together. Disposition
+  transactions also increment the owning batch revision. Aggregate results and page
+  queries use a consistent read snapshot; filters operate over all items, not a page.
+- Recovery uses existing run terminal records as authority and the rules in
+  `02_ARCHITECTURE.md` section 15. Pausing/stopping never deletes findings or evidence.
+- Artifact registration occurs only after successful report creation; errors leave
+  no successful report row or partial published artifact. Previously exported files
+  are retained. A stored revision identifies the snapshot, not a live report.

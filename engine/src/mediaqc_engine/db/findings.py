@@ -136,9 +136,12 @@ def overall(db: sqlite3.Connection, run_id: str) -> str:
 
 
 def public(db: sqlite3.Connection, row: sqlite3.Row) -> dict[str, object]:
+    from mediaqc_engine.explanations import explain
+
     value = dict(row)
     for key in ("measurements", "threshold", "metadata"):
         value[key] = json.loads(value.pop(key + "_json") or "{}")
+    value["explanation"] = explain(value)
     value["evidence"] = [
         dict(item)
         for item in db.execute(
@@ -269,5 +272,10 @@ def set_disposition(
             "UPDATE analysis_runs SET overall_result=? "
             "WHERE id=? AND status='COMPLETED'",
             (overall(db, run_id), run_id),
+        )
+        db.execute(
+            "UPDATE batches SET revision=revision+1,updated_at=? WHERE id IN "
+            "(SELECT batch_id FROM batch_items WHERE analysis_run_id=?)",
+            (now(), run_id),
         )
     return get(db, finding["id"])

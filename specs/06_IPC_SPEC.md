@@ -1,6 +1,7 @@
 # 06 — Desktop ↔ Engine IPC Specification
 
-**Version:** 1.0.0  
+**Version:** 1.1.0
+
 **Protocol version:** `1.0`
 
 ## 1. Transport
@@ -87,7 +88,7 @@ Result:
 {
   "engine_version": "0.1.0",
   "protocol_version": "1.0",
-  "schema_version": 2,
+  "schema_version": 3,
   "platform": "windows",
   "ffmpeg": {
     "available": true,
@@ -445,3 +446,135 @@ No row means not reviewed; LOCAL results must show this explicitly. OFF adds no
 review object. Existing envelopes, deterministic fields, events and reports retain
 their semantics. No AI-specific public command or settings persistence is added;
 AI mode is selected per analysis and saved on the run.
+
+## 12. Phase 10 additive batch contract
+
+Protocol remains `1.0`; specification version 1.1.0 and schema version 3 are
+independent. The capability example above is the Phase 10 target, not a claim that
+the current engine implements it. Add this capability (absence means unavailable):
+
+```json
+{
+  "batch": {
+    "available": true,
+    "contract_version": "1.0",
+    "folder_extensions": [".wav", ".mp3", ".mp4", ".mxf"],
+    "max_active_files": 1,
+    "page_size": 50
+  }
+}
+```
+
+Validate request types, allowed keys, IDs, absolute paths, project membership,
+state transitions, and page bounds. No filesystem command or source mutation is
+exposed. Update engine dispatch and desktop allowlists only during implementation.
+
+### Commands
+
+| Method | Params | Result / behavior |
+|---|---|---|
+| `batch.create` | `project_id`, `name`, `source_kind` (FILE/FOLDER), `absolute_path`, optional `recursive` (false) | Immediate `{batch_id,status:IMPORTING,revision}`; asynchronous discovery. recursive=true is valid only for FOLDER. |
+| `batch.list` | `project_id`, optional `limit` (50), `offset` (0) | `{batches,total,limit,offset}`; compact summaries, newest created first with ID tie-breaker. |
+| `batch.get` | `batch_id` | Compact dashboard snapshot defined below. |
+| `batch.items` | `batch_id`, optional `filter` (ALL), `limit` (50), `offset` (0) | `{batch_id,revision,items,total,limit,offset}`; total is matching row count. |
+| `batch.start` | `batch_id`, `profile_key`, `profile_version`, `ai_mode` (OFF/LOCAL) | Persist exact profile/settings, then `{batch_id,status,revision}`. READY with candidates required. |
+| `batch.pause` | `batch_id` | `{batch_id,status,revision}`; PAUSING or PAUSED, not a claim that the worker has stopped. |
+| `batch.resume` | `batch_id` | `{batch_id,status,revision}`; accepts PAUSED or eligible INTERRUPTED. No replacement settings. |
+| `batch.stop` | `batch_id` | Prompt `{batch_id,status,revision}` acknowledging STOPPING; terminal event follows cleanup. |
+| `batch.retry` | `batch_id`, `selection` (ERROR/CANCELLED/UNATTEMPTED/ALL_UNSUCCESSFUL) | New batch with original-item links and saved settings; `{batch_id,status:IMPORTING,revision}`. |
+| `batch.report.generate` | `batch_id`, `format` (HTML/PDF) | `{batch_report_id,batch_id,batch_revision,format,relative_path,absolute_path,generated_at}` after successful export. |
+
+Page limits are integers 1–50, offsets nonnegative integers; responses must fit
+existing transport limits. Names are 1–200 nonblank characters. Retry requires a
+quiescent source batch with saved settings and eligible items. UNATTEMPTED selects
+PENDING only in FAILED batches; ALL_UNSUCCESSFUL selects ERROR/CANCELLED plus those
+eligible PENDING items. Retry recaptures identity for those paths, without rescanning
+a folder, becomes READY, and still requires Run QC Analysis. Start for RETRY must
+match inherited profile/AI settings and use the saved snapshot, even if installed
+profile definitions changed. Original batches/runs are never reset or overwritten.
+
+Start/Pause/Resume/Stop are idempotent in architecture-defined states; repeated
+Start on RUNNING must match saved settings. Other invalid transitions leave DB
+unchanged. create/retry always create new identity: after an uncertain timeout the
+UI reconciles with batch.list instead of automatically repeating those commands.
+
+### Compact snapshots and pages
+
+`batch.get` returns:
+
+- `batch_id`, `project_id`, `name`, `source_kind`, `source_path`, `recursive`,
+  `status`, `revision`, `discovery_completed_at`, UTC lifecycle timestamps;
+- `profile`: null before Start, otherwise `{profile_key,name,version}`; `ai_mode`;
+- `counts`: `total`, `processed`, `pass`, `warn`, `fail`, `error`, `cancelled`,
+  `processing`, `pending`, with architecture section 15 semantics;
+- `import_summary`: `excluded`, `duplicate_encounters`, `directory_errors`,
+  `complete` (discovery finished), `partial` (directory-access problems);
+- `current`: null or `{item_id,analysis_run_id,file_name,relative_path,stage,
+  file_progress,media_time_seconds,media_duration_seconds}`; unknown fields null;
+- `overall_progress` (file-weighted fraction), `progress_estimated:true`,
+  `can_continue_pending`, nullable `error_code`, `error_message`;
+- `engine_session_id`, `progress_sequence` for live progress ordering.
+
+batch.list entries contain batch/project IDs, name, status, revision, timestamps,
+profile summary and counts, without per-file data. During IMPORTING counts are
+provisional and overall QC progress remains 0.
+
+`batch.items.filter` accepts ALL, NEEDS_ATTENTION, PASS, WARN, FAIL, ERROR,
+CANCELLED, PROCESSING, PENDING, or IMPORT_RESULTS. ALL excludes EXCLUDED;
+IMPORT_RESULTS includes EXCLUDED plus retained rows with duplicate_count > 0.
+Filter in SQLite before paging. Processing rows sort by queue_position/id; import
+rows by normalized path/id. During discovery use provisional normalized path/id order.
+
+Each row contains `item_id`, `queue_position`, `file_name`, `relative_path`,
+`absolute_path`, `status`, nullable `analysis_run_id`, nullable `overall_result`,
+`issue_counts` (active INFO/WARN/FAIL for completed runs; null otherwise),
+`error_code`, `error_message`, `exclusion_reason`, `duplicate_count`.
+No detector arrays, probe/profile JSON, findings arrays, or evidence payloads.
+Page total and revision use one DB snapshot; clamp unavailable pages after changes.
+
+### Project and selected-file compatibility
+
+project.create/open/get accept optional `summary_mode: "compact" | "full"`
+(default full). Compact results include `id`, `name`, `project_file`, timestamps,
+`media_asset_count`, `analysis_run_count`, `batch_count`; omit asset/run arrays and
+do not stat every source. Preserve legacy full responses. The batch UI uses compact
+mode from opening onward; historical standalone runs remain accessible through
+`analysis.list` with `project_id`, optional `limit` (50), `offset` (0), returning
+`{runs,total,limit,offset}` with run ID, asset ID, filename, status, overall_result,
+profile name/version, and timestamps, newest first with ID tie-breaker. Maximum 50.
+
+Existing analysis.get/finding.list/finding.get/evidence.read serve the selected file
+and finding with existing fields/safeguards. finding.list supports its existing
+limit (default/max 100) and offset (default 0), returning findings and total.
+Do not request every run or every finding for the dashboard. Single-run APIs remain
+valid when not conflicting with scheduler ownership.
+
+Finding responses may add `explanation: {summary,comparisons}`. Each comparison is
+`{label,measured,unit,target,minimum,maximum,difference_from_limit}`; numeric fields
+are finite numbers or null. Unit-aware adapters use saved finding thresholds or
+the exact saved profile, never current settings. Difference is the nonnegative
+distance outside the violated boundary, zero inside, null when inapplicable.
+Unknown/categorical findings use saved prose and an empty comparisons array.
+This is a derived read model, not stored detector output or an AI review.
+
+### Events and errors
+
+Add `batch.discovery`, `batch.status`, `batch.item_changed`, `batch.progress`,
+`batch.completed`, `batch.stopped`, `batch.failed`, `batch.interrupted`. Each carries
+`batch_id`, persisted `revision`, `engine_session_id`, and monotonic `sequence`
+within that engine session. item_changed adds `item_id`, nullable `analysis_run_id`;
+progress adds compact counts/current/overall_progress; discovery adds import_summary;
+status/terminal events add status/error context. Existing analysis events are unchanged.
+
+Events follow commits. Coalesce progress, never intentionally drop terminal state
+notifications. The UI ignores stale session/sequence values, refreshes batch.get
+and the visible page after persisted changes, and uses nonoverlapping compact
+fallback polling while active. Reopen/event loss recovers from DB. Reset ordering
+on engine restart. Disposition changes publish item_changed at the new revision.
+
+Additional errors: BATCH_NOT_FOUND, BATCH_INVALID_STATE, BATCH_CONFLICT, BATCH_BUSY,
+BATCH_EMPTY, BATCH_IMPORT_FAILED. Retain existing media/profile/project/report codes.
+Messages include actionable structured context without source-media content.
+Batch export accepts only PAUSED, COMPLETED, STOPPED, INTERRUPTED, or FAILED when
+no other operation owns the scheduler. Reject conflicting report/start/resume
+requests with BATCH_BUSY; report generation must not block active cancellation.

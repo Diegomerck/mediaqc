@@ -96,16 +96,18 @@ test('finding list selects every issue and inspector exposes profile and measure
   expect(screen.getByRole('table').textContent).toContain('Whole stream');
   expect(
     within(screen.getByRole('region', { name: 'Issue inspector' })).getByText(
-      /mean_luma_normalized/u,
+      /mean luma normalized/u,
     ),
   ).toBeTruthy();
   expect(screen.getByText('Profile: General QC v1.2.0')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Audio issue' }));
   const inspector = screen.getByRole('region', { name: 'Issue inspector' });
-  expect(inspector.textContent).toContain('audio.clipping v1.0.0');
-  expect(inspector.textContent).toContain('Stream: video-stream');
+  const technical = screen.getByText('Technical Details').closest('details');
+  expect(technical?.open).toBe(false);
+  expect(technical?.textContent).toContain('audio.clipping v1.0.0');
+  expect(technical?.textContent).toContain('Stream: video-stream');
   expect(inspector.textContent).toContain('Confidence: 0.8');
-  expect(inspector.textContent).toContain('max_luma');
+  expect(inspector.textContent).toContain('max luma');
 });
 
 test('severity, detector, disposition, media kind and search filters affect list', () => {
@@ -247,7 +249,7 @@ test('missing and failed visual evidence are explicit even with metrics referenc
     />,
   );
   expect(screen.getByRole('alert').textContent).toContain('Disk full');
-  expect(screen.getByRole('alert').textContent).toContain('AUDIO_SPECTROGRAM');
+  expect(screen.getByRole('alert').textContent).toContain('audio spectrogram');
 });
 
 test.each(['EVIDENCE_STALE', 'EVIDENCE_UNAVAILABLE'])(

@@ -61,6 +61,7 @@ async fn pick_path(kind: String) -> Result<Option<String>, Failure> {
                 .add_filter("MediaQC project", &["sqlite"])
                 .pick_file(),
             "media" => dialog.set_title("Select local source media").pick_file(),
+            "media_directory" => dialog.set_title("Select source media folder").pick_folder(),
             _ => return Err(Failure::new("INVALID_REQUEST", "Unknown file picker kind")),
         };
         Ok(selected.map(|path| path.to_string_lossy().into_owned()))

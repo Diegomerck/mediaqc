@@ -1,6 +1,6 @@
 # 01 — Product Specification
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## 1. Problem statement
 
@@ -23,12 +23,12 @@ Needs offline use on media workstations with restricted/no internet access.
 
 1. Launch MediaQC.
 2. Create/open project.
-3. Select media.
-4. Inspect metadata.
-5. Select QC profile.
-6. Start analysis.
-7. Observe progress.
-8. Review result summary.
+3. Select Media / Folder; review the imported queue and exclusions.
+4. Select QC profile and optional AI mode (OFF by default).
+5. Choose Run QC Analysis.
+6. Inspect each selected file automatically immediately before its QC turn.
+7. Observe batch progress; Pause, Resume, or Stop as needed.
+8. Review compact batch results and select a file for details.
 9. Inspect findings on timeline.
 10. Confirm / mark false positive / ignore.
 11. Export HTML/PDF report.
@@ -182,3 +182,85 @@ Overall result SHALL be FAIL.
 ## 9. V1 completion statement
 
 MediaQC V1 is complete when a non-developer can install it on Windows, analyze supported local media offline, understand the detected issues with evidence, disposition findings, and export a reproducible report.
+
+## 10. Phase 10 batch requirements
+
+### PRD-013 Import policy
+
+- A batch belongs to one project. Select one source folder or one explicit file;
+  single-file operation is a one-item batch in the new UI. Existing single-run
+  APIs and historical results remain usable.
+- Automatic folder extensions are exactly `.wav`, `.mp3`, `.mp4`, `.mxf`, matched
+  case-insensitively. Existing validation includes WAV project/audio tests,
+  MP4/MXF video tests, and WAV/MP3/MP4/MXF release validation recorded in
+  `docs/PHASE_9.md` and `tools/smoke_release.py`. AAC audio inside an MP4 does not
+  validate standalone `.aac`. MOV/AIFF/AIF/FLAC/AAC are not added to discovery.
+- Explicit file selection retains unrestricted selection and actual ffprobe/
+  detector support checks. Extension eligibility never guarantees successful QC.
+- Include subfolders is optional and OFF by default. Discovery never follows
+  symbolic links, directory junctions, or other reparse-point entries, including
+  a selected folder that is itself such an entry. Report exclusions explicitly.
+- Deduplicate normalized absolute paths within a batch using Windows path
+  normalization/case handling; preserve the original display path. Do not hash
+  contents for deduplication. Different paths, including hard links, remain
+  distinct. New batches may reference previously analyzed sources.
+- Persist discovered candidates without decoding them. Capture size/mtime when
+  available. Sort by normalized relative path (absolute path for explicit input),
+  with a stable tie-breaker, and freeze membership/order when discovery completes.
+- Exclude unsupported extensions and engine-owned DB/cache/evidence/report/log
+  artifacts. Persist inspectable exclusion reasons and counts outside queue totals.
+  Record unreadable subdirectories as import problems; make partial discovery
+  prominent. An unreadable root fails discovery. Never silently claim a complete
+  scan after a directory-access error.
+- A supported candidate that cannot be read remains a queue member and becomes
+  `ERROR` when processed. Corrupt/unreadable/changed/missing media must not stop
+  other safe work. Preserve structured errors and available diagnostic references.
+- Changed import size/mtime or inspection fingerprint produces `MEDIA_CHANGED`
+  rather than silently analyzing changed content. Reimport is an explicit action.
+- No candidates means Run QC Analysis is disabled. Discovery is cancellable and
+  must not block control requests. No source bytes, metadata, names, or locations
+  are modified, and no source-adjacent sidecars are created.
+
+### PRD-014 Queue and controls
+
+Exactly one file is active per engine, from inspection through analysis, evidence,
+and optional advisory work. Freeze the selected valid profile snapshot and AI mode
+at batch start; Resume uses that snapshot. Completed run history is immutable
+except for existing explicit operator dispositions/notes.
+
+Pause finishes the current file and prevents the next from starting; show
+"Pausing after current file..." until paused. Resume continues pending files.
+Stop blocks scheduling, cancels active inspection/analysis, and marks pending
+items `CANCELLED`; completed results are preserved. Stop is not Resume. Failed or
+cancelled files can be retried as a new batch, retaining original batch/run links.
+Detailed transitions and recovery rules are authoritative in `02_ARCHITECTURE.md`.
+
+### PRD-015 Review and persistence
+
+Persist batch membership, order, settings, state, completed run links, and errors.
+Reopen previous batches without rerunning media. After unexpected termination,
+reconcile persisted state and offer "Continue pending files" explicitly; never
+automatically restart or resume inside a file. An interrupted discovery is not a
+complete batch and requires a new import.
+
+The dashboard SHALL distinguish PASS/WARN/FAIL from ERROR/CANCELLED and show total,
+processed, processing, and pending counts. Only completed QC contributes a verdict.
+Needs attention includes WARN, FAIL, and ERROR. Use SQLite filters and 50-row pages.
+Load detailed run data only for the selected file and evidence only for the selected
+finding. Preserve all diagnostic information behind collapsed Technical details.
+
+Measured-versus-threshold explanations are deterministic engine presentation of
+saved measurements and saved policy, never AI evaluation or new QC calculations.
+No new thresholds, severities, or detector results may be introduced by wording.
+
+### PRD-016 Batch reports
+
+Keep existing detailed per-run HTML/PDF reports. Add batch HTML/PDF summaries with
+batch name, profile/version, generation time, queue state, totals, verdict/error
+counts, and one compact row per processing member (relative path, execution state,
+verdict or no verdict, active issue counts, and concise error where relevant).
+Summarize exclusions/import problems separately; do not embed every evidence item.
+Allow export only when PAUSED or terminal (including INTERRUPTED); label incomplete
+or stopped work explicitly. Save consistent snapshots under project `reports/`,
+retain older exports, and record the batch revision. Report generation does not
+require source media or a production AI provider; detailed report safeguards remain.

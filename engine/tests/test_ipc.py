@@ -108,7 +108,14 @@ def test_capabilities_are_truthful_and_versioned() -> None:
     assert response["result"] == {
         "engine_version": "0.0.0",
         "protocol_version": "1.0",
-        "schema_version": 2,
+        "schema_version": 3,
+        "batch": {
+            "available": True,
+            "contract_version": "1.0",
+            "folder_extensions": [".wav", ".mp3", ".mp4", ".mxf"],
+            "max_active_files": 1,
+            "page_size": 50,
+        },
         "platform": "windows" if sys.platform == "win32" else sys.platform,
         "ffmpeg": {"available": False, "version": None},
         "ffprobe": {"available": False, "version": None},

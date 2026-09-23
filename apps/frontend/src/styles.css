@@ -214,3 +214,47 @@ figure img {
   max-height: 12rem;
   overflow: auto;
 }
+/* Phase 10: a bounded compact queue, with detail rendered only on selection. */
+.workflow-steps {
+  font-weight: 600;
+}
+.batch-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.batch-counts > span {
+  padding: 0.65rem;
+  border: 1px solid currentColor;
+  border-radius: 0.4rem;
+}
+.batch-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.batch-table td,
+.batch-table th {
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid #52606c;
+}
+.batch-table button {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.status-pass {
+  color: #91dcaf;
+}
+.status-warn {
+  color: #ffe49a;
+}
+.status-fail,
+.status-error {
+  color: #ffaaaa;
+}
+.comparison {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) 2fr;
+  gap: 0.5rem;
+}

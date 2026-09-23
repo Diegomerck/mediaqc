@@ -1,9 +1,14 @@
 # MediaQC V1 — Master Specification
 
 **Status:** Authoritative  
-**Version:** 1.0.0  
+**Version:** 1.1.0
+
 **Target:** Windows 10/11, offline-first  
 **Working product name:** MediaQC
+
+**Active phase:** Phase 10 — batch processing and streamlined operator UX.
+
+**Amendment status:** Approved specification; implementation requires separate user authorization.
 
 ---
 
@@ -129,6 +134,14 @@ V1 SHALL support any media that bundled FFmpeg can reliably demux/decode for the
 
 Unsupported or partially supported media SHALL fail gracefully and produce actionable error information.
 
+This list expresses broad V1 media intent, not evidence of validation for every
+extension. Phase 10 automatic folder discovery SHALL include only `.wav`, `.mp3`,
+`.mp4`, and `.mxf` (case-insensitive). These are the documented, validated core
+formats; see `specs/01_PRODUCT_SPEC.md` section 10. Additional extensions require
+explicit documentation and validation before addition. FFmpeg capability alone
+does not establish supported status. Explicit single-file selection retains its
+existing unrestricted selection and probe-based validation behavior.
+
 ---
 
 ## 7. Core result model
@@ -174,11 +187,17 @@ FAILED
 
 Overall result:
 
-- `FAIL` if one or more non-ignored FAIL findings exist.
-- else `WARN` if one or more non-ignored WARN findings exist.
+- `FAIL` if one or more active FAIL findings exist.
+- else `WARN` if one or more active WARN findings exist.
 - else `PASS`.
 
 INFO findings do not change overall result.
+
+Active findings have disposition `OPEN` or `CONFIRMED`; `FALSE_POSITIVE` and
+`IGNORED` do not contribute, consistent with the product acceptance examples.
+Only `COMPLETED` analyses receive PASS/WARN/FAIL. Incomplete, failed, and cancelled
+runs retain a null verdict. Batch item `ERROR` is an execution outcome, not QC
+severity `FAIL`. Batch completion does not assert that all files passed.
 
 ---
 
@@ -438,6 +457,31 @@ Deliver:
 
 ---
 
+### Phase 10 — Batch processing + streamlined operator UX
+
+Deliver:
+
+- persistent engine-owned batches and queue items in SQLite schema version 3;
+- asynchronous folder discovery under the section 6 format restriction;
+- exactly one active media file per engine, including inspection and evidence;
+- Pause after the current file, Resume pending work, and safe Stop;
+- retained completed results and explicit continuation of pending files after
+  unexpected termination, without mid-file resume;
+- compact SQLite-filtered, paginated dashboard (50 rows per page);
+- selected-file drill-down, deterministic measured-versus-threshold explanations,
+  and collapsed Technical details;
+- existing per-run HTML/PDF reports plus compact batch HTML/PDF summaries;
+- installer and portable offline acceptance coverage.
+
+Exit criteria are the Phase 10 matrix in `specs/09_TESTING_SPEC.md`. Preserve all
+existing detector mathematics, profile thresholds, verdict/disposition semantics,
+evidence, notes, local optional AI, source immutability, subprocess ownership, and
+bounded-memory guarantees. No parallel files, production AI model/runtime,
+automatic restart, mid-file checkpoints, watch folders, or new runtime services
+are introduced. Queue entries SHALL NOT pre-create queued analysis runs.
+
+---
+
 ## 12. Global acceptance criteria
 
 V1 is complete only when ALL of the following are true:
@@ -461,6 +505,7 @@ V1 is complete only when ALL of the following are true:
 - AI can be entirely disabled.
 - Windows installer bundles required runtime dependencies.
 - No core V1 workflow requires account sign-in or cloud services.
+- Phase 10 batch acceptance passes with AI OFF in installed and portable builds.
 
 ---
 
@@ -498,7 +543,7 @@ Any proposal that changes one of these requires a specification update before im
 
 ## 15. Coding-agent execution prompt
 
-Recommended initial prompt to an AI coding agent:
+Historical Phase 0 bootstrap prompt (not the active-phase instruction):
 
 ```text
 You are implementing MediaQC V1.
@@ -519,3 +564,7 @@ Before coding, summarize:
 Then implement Phase 0 and run its acceptance checks.
 Do not proceed to Phase 1 until Phase 0 is complete.
 ```
+
+For Phase 10, read the approved amended specifications and implement only after
+explicit implementation approval. Specification approval alone does not authorize
+application changes, dependency installation, full quality gates, or packaging.

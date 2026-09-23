@@ -28,28 +28,33 @@ export interface MediaAsset {
   source_status: string;
   streams: Stream[];
 }
-export interface Project {
+export interface CompactProject {
   id: string;
   name: string;
   project_file: string;
+}
+export interface Project extends CompactProject {
   media_assets: MediaAsset[];
   analysis_runs?: Run[];
 }
 export const projects = {
-  pick: (kind: 'directory' | 'project' | 'media') =>
+  pick: (kind: 'directory' | 'project' | 'media' | 'media_directory') =>
     invoke<string | null>('pick_path', { kind }),
   create: (directory: string, name: string) =>
-    invoke<Project>('engine_request', {
+    invoke<CompactProject>('engine_request', {
       method: 'project.create',
-      params: { directory, name },
+      params: { directory, name, summary_mode: 'compact' },
     }),
   open: (project_file: string) =>
-    invoke<Project>('engine_request', {
+    invoke<CompactProject>('engine_request', {
       method: 'project.open',
-      params: { project_file },
+      params: { project_file, summary_mode: 'compact' },
     }),
   get: () =>
-    invoke<Project>('engine_request', { method: 'project.get', params: {} }),
+    invoke<CompactProject>('engine_request', {
+      method: 'project.get',
+      params: { summary_mode: 'compact' },
+    }),
   inspect: (project_id: string, absolute_path: string) =>
     invoke('engine_request', {
       method: 'media.inspect',
