@@ -1,6 +1,6 @@
 # 09 — Testing and Validation Specification
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## 1. Testing philosophy
 
@@ -248,3 +248,60 @@ A detector is V1-ready when:
 - evidence exists;
 - failure/cancellation tested;
 - performance is acceptable.
+
+## 19. Phase 10 acceptance matrix
+
+These are implementation/release exit requirements, not claims of completed tests.
+The specification-only amendment does not authorize running the full quality gate
+or building packages. Implement focused regression tests alongside each approved
+implementation step, then perform release validation when authorized.
+
+| Area | Required evidence |
+|---|---|
+| Single file | One-item batch and legacy single-run APIs preserve metadata, detector versions/measurements, findings, evidence, verdict/disposition rules, notes, and detailed HTML/PDF output. Compare semantic results excluding generated IDs/timestamps. |
+| Formats | Real mixed WAV/MP3/MP4/MXF fixture batch completes supported analyses. Automatic extension matching is case-insensitive and exactly the documented four extensions. MOV/AIFF/AIF/FLAC/AAC and renamed unsupported extensions are not auto-admitted merely because FFmpeg can decode them. Explicit single-file selection retains probe-based behavior. |
+| Folder import | Default excludes subdirectories; optional recursion includes ordinary descendants. No symlink/junction/reparse traversal, including a selected linked root; no loops. Stable order and membership after discovery. Empty folder disables Start. |
+| Exclusions and duplicates | Unsupported files/project artifacts are inspectable and excluded from processing totals. Normalized duplicate paths produce one queue item and visible duplicate count; same basename/different paths and same-content/different paths remain distinct. New batches preserve earlier run history. |
+| Unreadable/corrupt input | Unreadable root fails discovery; inaccessible child directory yields prominent partial-import warning. Supported unreadable/corrupt files become ERROR with null verdict and actionable diagnostics; later safe files run. Changed/missing sources are never silently accepted. |
+| 137-file queue | Stable ordering, correct totals, exactly one active file including inspection/evidence, no pre-created queued run per pending item. Combine deterministic coordinator doubles for race tests with a real 100+ short-file integration batch. |
+| Pause/Resume | Pause during inspection/analysis/evidence allows the current file to finish, starts no successor, preserves completed data and saved profile/AI mode. Pause between files is immediate. Last-file Pause ends COMPLETED. Repeated controls do not duplicate runs. |
+| Stop | Stop at inspection, detector, evidence, and between-file boundaries persists cancellation and terminal events, reaps owned ffprobe/FFmpeg, cancels pending members without synthetic runs, and retains completed results. Stop file 127 of 150 and verify first 126 run/findings/evidence records after reopen. |
+| Races/ownership | Exercise Stop versus terminal commit, Pause/Stop versus next claim, standalone Start/Retry/Cancel versus batch ownership, project switching, and export versus Resume. At most one worker/file is active; no deadlock or scheduling after accepted Stop. |
+| Recovery | Inject termination after item claim, before/after atomic run creation/linkage, after run terminal commit before item update, and during STOPPING. Reconcile from DB without journal dependence for pending items. Completed runs win, interrupted runs fail, pending files require explicit continuation. No mid-file resume or automatic rerun. Interrupted discovery cannot continue. |
+| Persistence/migration | Version 1→2→3 and 2→3, committed-WAL backup, rollback on failure, no overwritten backup/history, foreign keys, same-project links, immutable snapshots, original retry links, preserved old reports and notes. Reopen paused/completed/stopped batches and retry as new batches. |
+| Filtering/counts | SQL filters span all pages; 50-row pages and stable ordering; NEEDS_ATTENTION = WARN/FAIL/ERROR. All partition counts sum to total, exclusions do not. Disposition changes update verdict/count/filter/revision atomically, including when the file leaves the current filter. |
+| Progress | File-weighted formula, correct processed/current-file labels, indeterminate unknown progress, finalization before 100%, and explicit stopped coverage. Stale/duplicate/lost events and late subscriptions reconcile with compact snapshots. |
+| Drill-down | No details/evidence fetched for unselected files/findings. Technical details collapsed initially; all diagnostics remain accessible. Evidence errors and execution errors stay visible. Timeline, dispositions, notes, and return-to-page/filter work. |
+| Explanations | Persisted -24.12 LUFS against -23 ±1 produces bounds -24/-22 and 0.12 LU outside the lower bound. Test upper/lower boundaries, units, null/nonfinite protection, display rounding, historical profile edits, unknown schemas, and unchanged raw measurements/severity. No AI or UI analysis. |
+| Reports | Existing per-run HTML/PDF remains valid. Batch HTML/PDF has one processing-member row per file, exact saved counts/revision/profile, separate exclusions, explicit incomplete states, offline reopen export, retained older artifacts, and cleanup on failure. No whole-batch evidence embedding. |
+| Immutability | Compare source bytes/hash, size, modification time, names, and directory contents before/after import, QC, Stop, retry, disposition, and export; no output sidecars or source writes. Do not require unchanged OS-managed access time. |
+| AI | Entire batch works with AI OFF; unavailable/failing LOCAL advice cannot fail deterministic QC. No new production provider/model/runtime. |
+| Deployment | Both clean-machine NSIS and relocated portable ZIP pass the batch workflow offline, CPU-only, with bundled engine/FFmpeg/ffprobe and no developer tools. Honor documented WebView2 prerequisites. |
+
+### Scalability and resource acceptance
+
+- UI test with 1,000 stored item summaries mounts at most 50 batch rows and only
+  one selected result view. Page/filter transitions fetch bounded summaries, not
+  all analysis.get responses or source stat checks. Old previews are released.
+- Bound discovery buffers and protocol payloads, including a large exclusion list;
+  IPC remains responsive to Stop while scanning or probing. Poll requests never
+  accumulate when an earlier poll is pending.
+- Compare peak/steady engine, owned-child, and WebView memory on repeated short-file
+  batches and representative long 1080p/4K/MXF files. Record hardware, codec, duration,
+  working set, and cache/evidence disk growth. Queue persistence may grow on disk;
+  decoded media and result/evidence buffers must not accumulate per processed file.
+- Use structural tests for bounded page/stream buffers plus measured runs showing
+  no sustained per-file memory growth after warm-up. Investigate deviations; do not
+  invent a universal RAM ceiling unsupported by the target workstation baseline.
+- Preserve Phase 9 detector/cancellation performance guarantees. No throughput
+  optimization may change QC mathematics or profile sampling without amendment.
+
+### Focused implementation order for validation
+
+1. Migration/repository/state-machine and recovery tests.
+2. Discovery/inspection/queue integration and cancellation races.
+3. IPC/desktop ownership, compact reads, event reconciliation.
+4. Dashboard/drill-down/explanation and report regressions.
+5. Existing deterministic suites, 100+ real-file integration, scalability evidence.
+6. Required quality gate and installed/portable release matrix only in an explicitly
+   authorized implementation/release task, not during specification editing.

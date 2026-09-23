@@ -42,6 +42,7 @@ def create(
     profile: dict[str, object],
     fingerprint: object,
     ai_mode: str = "OFF",
+    batch_item_id: str | None = None,
 ) -> str:
     identifier = str(uuid4())
     with db:
@@ -71,6 +72,27 @@ def create(
                 now(),
             ),
         )
+        if batch_item_id is not None:
+            item = db.execute(
+                "SELECT i.batch_id FROM batch_items i JOIN batches b ON "
+                "b.id=i.batch_id "
+                "WHERE i.id=? AND i.status='INSPECTING' AND b.project_id=? "
+                "AND b.status IN ('RUNNING','PAUSING') AND "
+                "b.qc_profile_snapshot_json=? "
+                "AND b.ai_mode=? AND i.analysis_run_id IS NULL",
+                (batch_item_id, project_id, encode(profile), ai_mode),
+            ).fetchone()
+            if item is None:
+                raise AppError("BATCH_CONFLICT", "Batch item cannot start this run")
+            db.execute(
+                "UPDATE batch_items SET "
+                "status='RUNNING',analysis_run_id=?,media_asset_id=?,updated_at=?"
+                " WHERE id=?",
+                (identifier, asset_id, now(), batch_item_id),
+            )
+            from mediaqc_engine.db.batches import touch
+
+            touch(db, item[0])
     return identifier
 
 

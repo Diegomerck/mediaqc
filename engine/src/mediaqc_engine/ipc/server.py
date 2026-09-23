@@ -94,6 +94,7 @@ def handle_line(
             result = projects.dispatch(method, request["params"])
         else:
             if method == "system.shutdown" and projects is not None:
+                projects.batches.shutdown(projects.project)
                 projects.jobs.shutdown()
             result = (
                 capabilities(projects.jobs.ai_provider if projects else None)

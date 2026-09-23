@@ -45,6 +45,18 @@ export interface Run {
   total?: number;
 }
 export interface Finding {
+  explanation?: {
+    summary: string;
+    comparisons: {
+      label: string;
+      measured: number | null;
+      unit: string;
+      target: number | null;
+      minimum: number | null;
+      maximum: number | null;
+      difference_from_limit: number | null;
+    }[];
+  };
   ai_review?: {
     status: 'COMPLETED' | 'UNAVAILABLE';
     error_code: string | null;

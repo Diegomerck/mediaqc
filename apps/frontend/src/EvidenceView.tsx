@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { jobs, type Finding } from './jobs';
 import { engineError } from './engine';
 
-function Artifact({ item }: { item: Finding['evidence'][number] }) {
+function Artifact({
+  item,
+  technical,
+}: {
+  item: Finding['evidence'][number];
+  technical: boolean;
+}) {
   const [result, setResult] =
     useState<Awaited<ReturnType<typeof jobs.evidence>>>();
   const [error, setError] = useState('');
@@ -26,7 +32,8 @@ function Artifact({ item }: { item: Finding['evidence'][number] }) {
   return (
     <figure>
       <figcaption>
-        {item.evidence_type}: {item.relative_path}
+        {item.evidence_type.replaceAll('_', ' ')}
+        {technical && `: ${item.relative_path}`}
       </figcaption>
       {error ? (
         <p role="alert">
@@ -124,7 +131,7 @@ function Artifact({ item }: { item: Finding['evidence'][number] }) {
               )}
             </>
           )}
-          {result.text && <pre>{result.text}</pre>}
+          {result.text && technical && <pre>{result.text}</pre>}
           {!result.data_url && !result.text && (
             <p role="alert">Evidence unavailable: empty artifact response</p>
           )}
@@ -134,7 +141,29 @@ function Artifact({ item }: { item: Finding['evidence'][number] }) {
   );
 }
 
-export default function EvidenceView({ finding }: { finding: Finding }) {
+export default function EvidenceView({
+  finding,
+  technical = false,
+}: {
+  finding: Finding;
+  technical?: boolean;
+}) {
+  const diagnostic =
+    finding.metadata.visual_evidence_errors ?? finding.metadata.evidence_error;
+  const messages = (Array.isArray(diagnostic) ? diagnostic : [diagnostic])
+    .map((value: unknown) => {
+      if (typeof value === 'string') return value;
+      if (
+        value &&
+        typeof value === 'object' &&
+        'message' in value &&
+        typeof value.message === 'string'
+      )
+        return value.message;
+      return '';
+    })
+    .filter(Boolean)
+    .join('; ');
   const expected = finding.detector_id.startsWith('video.')
     ? ['VIDEO_FRAME_BEFORE', 'VIDEO_FRAME', 'VIDEO_FRAME_AFTER']
     : ['AUDIO_WAVEFORM', 'AUDIO_SPECTROGRAM'];
@@ -145,24 +174,22 @@ export default function EvidenceView({ finding }: { finding: Finding }) {
     <section aria-label="Finding evidence">
       {missing.length > 0 && (
         <p role="alert">
-          Evidence unavailable: {missing.join(', ')}.{' '}
-          {JSON.stringify(
-            finding.metadata.visual_evidence_errors ??
-              finding.metadata.evidence_error ??
-              'No visual evidence saved; rerun analysis',
-          )}
-          . Measurements remain available.
+          Evidence unavailable:{' '}
+          {missing
+            .map((kind) => kind.toLowerCase().replaceAll('_', ' '))
+            .join(', ')}
+          .{messages} Saved measurements remain available. See Technical Details
+          for diagnostics.
         </p>
       )}
       {finding.metadata.evidence_error != null && missing.length === 0 && (
         <p role="alert">
-          Evidence generation error:{' '}
-          {JSON.stringify(finding.metadata.evidence_error)}
+          Evidence generation error. See Technical Details for diagnostics.
         </p>
       )}
       <div className="evidence-grid">
         {finding.evidence.map((item) => (
-          <Artifact key={item.id} item={item} />
+          <Artifact key={item.id} item={item} technical={technical} />
         ))}
       </div>
     </section>

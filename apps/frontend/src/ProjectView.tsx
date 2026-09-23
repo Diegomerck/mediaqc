@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { projects, type Project } from './projects';
+import { projects, type CompactProject } from './projects';
 import { engineError, type EngineError } from './engine';
-import AnalysisView from './AnalysisView';
+import BatchView from './BatchView';
 
 interface Recent {
   path: string;
@@ -28,7 +28,7 @@ function loadRecent(): Recent[] {
 }
 
 export default function ProjectView() {
-  const [project, setProject] = useState<Project | null>(null);
+  const [project, setProject] = useState<CompactProject | null>(null);
   const [name, setName] = useState('');
   const [directory, setDirectory] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,7 +36,7 @@ export default function ProjectView() {
   const [failure, setFailure] = useState<EngineError | null>(null);
   const [recent, setRecent] = useState(loadRecent);
 
-  function remember(next: Project) {
+  function remember(next: CompactProject) {
     setProject(next);
     const updated = [
       { path: next.project_file, opened: new Date().toISOString() },
@@ -50,7 +50,7 @@ export default function ProjectView() {
     }
   }
   async function perform(
-    action: 'create' | 'open' | 'inspect' | 'refresh',
+    action: 'create' | 'open' | 'refresh',
     savedPath?: string,
   ) {
     setBusy(true);
@@ -62,16 +62,6 @@ export default function ProjectView() {
         if (path) remember(await projects.open(path));
       }
       if (action === 'refresh') setProject(await projects.get());
-      if (action === 'inspect' && project) {
-        const path = await projects.pick('media');
-        if (path) {
-          try {
-            await projects.inspect(project.id, path);
-          } finally {
-            setProject(await projects.get());
-          }
-        }
-      }
     } catch (error: unknown) {
       setFailure(engineError(error));
     } finally {
@@ -92,7 +82,7 @@ export default function ProjectView() {
       aria-labelledby="projects-heading"
       aria-busy={busy}
     >
-      <h2 id="projects-heading">Projects and media inspection</h2>
+      <h2 id="projects-heading">Projects</h2>
       <p>
         Each local project folder stores its database and inspection metadata.
         Source media stays at its original location.
@@ -153,11 +143,7 @@ export default function ProjectView() {
           ))}
         </details>
       )}
-      {busy && (
-        <p role="status">
-          Working locally… Inspection may take up to 30 seconds.
-        </p>
-      )}
+      {busy && <p role="status">Working locally…</p>}
       {failure && (
         <div className="error-box" role="alert">
           <strong>Operation failed: {failure.code}</strong>
@@ -169,98 +155,11 @@ export default function ProjectView() {
         <>
           <h3>{project.name}</h3>
           <p className="path">{project.project_file}</p>
-          <AnalysisView
+          <BatchView
             key={project.id}
             project={project}
             onActive={setActiveRun}
           />
-          <div className="actions">
-            <button
-              disabled={busy || activeRun}
-              onClick={() => {
-                void perform('inspect');
-              }}
-            >
-              Choose media and inspect
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => {
-                void perform('refresh');
-              }}
-            >
-              Refresh project
-            </button>
-          </div>
-          {project.media_assets.length === 0 && <p>No media inspected yet.</p>}
-          {project.media_assets.map((asset) => (
-            <article key={asset.id} className="media-card">
-              <h3>
-                {asset.file_name} — {asset.inspection_status}
-              </h3>
-              <p className="path">{asset.absolute_path}</p>
-              {asset.source_status !== 'UNCHANGED' && (
-                <p role="alert">
-                  Source warning: {asset.source_status}. Locate the source and
-                  inspect again.
-                </p>
-              )}
-              {asset.inspection_error_code && (
-                <p>
-                  {asset.inspection_error_code}:{' '}
-                  {asset.inspection_error_message}
-                </p>
-              )}
-              <dl className="diagnostics">
-                <div>
-                  <dt>Size</dt>
-                  <dd>{asset.file_size_bytes} bytes</dd>
-                </div>
-                <div>
-                  <dt>Modified (UTC)</dt>
-                  <dd>{asset.modified_at ?? 'Unavailable'}</dd>
-                </div>
-                <div>
-                  <dt>Duration</dt>
-                  <dd>{asset.duration_seconds ?? 'Unavailable'} seconds</dd>
-                </div>
-                <div>
-                  <dt>Container</dt>
-                  <dd>{asset.container_format ?? 'Unavailable'}</dd>
-                </div>
-                <div>
-                  <dt>Stream count</dt>
-                  <dd>{asset.streams.length}</dd>
-                </div>
-                <div className="wide">
-                  <dt>Source fingerprint (SHA-256)</dt>
-                  <dd>{asset.fast_fingerprint_sha256}</dd>
-                </div>
-              </dl>
-              {asset.streams.map((stream) => (
-                <p key={stream.stream_index}>
-                  Stream {stream.stream_index}: {stream.stream_type}, codec{' '}
-                  {stream.codec_name ?? 'unknown'}.
-                  {stream.stream_type === 'video' && (
-                    <>
-                      {' '}
-                      {stream.width} × {stream.height}; average frame rate{' '}
-                      {stream.avg_frame_rate ?? 'unknown'}; real frame rate{' '}
-                      {stream.real_frame_rate ?? 'unknown'}.
-                    </>
-                  )}
-                  {stream.stream_type === 'audio' && (
-                    <>
-                      {' '}
-                      {stream.sample_rate_hz ?? 'unknown'} Hz;{' '}
-                      {stream.channel_count ?? 'unknown'} channels; layout{' '}
-                      {stream.channel_layout ?? 'unknown'}.
-                    </>
-                  )}
-                </p>
-              ))}
-            </article>
-          ))}
         </>
       )}
     </section>

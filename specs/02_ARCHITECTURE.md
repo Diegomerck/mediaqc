@@ -1,6 +1,6 @@
 # 02 — Architecture Specification
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## 1. Architectural goals
 
@@ -139,11 +139,11 @@ A run owns:
 - evidence queue;
 - DB transaction boundaries.
 
-Recommended V1 concurrency:
+Required Phase 10 concurrency:
 
-- one active analysis run by default;
-- configurable detector/media worker concurrency later;
-- avoid parallel full-file decodes unless benchmarks justify it.
+- exactly one active media file per engine, including inspection and evidence;
+- no parallel file processing or inspection prefetch;
+- retain current detector scheduling; configurable concurrency is future work.
 
 Optimization SHOULD favor shared decode passes when practical, but correctness takes priority over premature performance work.
 
@@ -156,6 +156,9 @@ On engine startup:
 - do not pretend they completed.
 
 V1 does not require mid-file resume.
+
+Phase 10 adds explicit pending-item continuation, not resumable analysis runs.
+Section 15 defines reconciliation of batch items with the recovered run records.
 
 ## 9. File identity
 
@@ -243,3 +246,140 @@ A fatal media decode/input failure MAY fail the run.
 - Large fixture processing keeps memory bounded.
 - UI can restart, reopen project, and read completed results.
 - Engine stdout contains protocol JSON only.
+
+## 15. Phase 10 batch coordinator
+
+### Ownership and execution
+
+The local Python engine owns a persistent sequential coordinator above the existing
+single-run manager. SQLite is authoritative; React never schedules the next file.
+No new service, transport, dependency, decoder, or detector algorithm is required.
+
+Use a single scheduler reservation shared by batch execution, standalone analysis,
+and inspection. Only one batch may be IMPORTING, RUNNING, PAUSING, or STOPPING per
+engine. A paused batch retains its saved queue but no active worker; another batch
+may run only through an explicit start. Resume must reacquire the reservation.
+Project switching is rejected while discovery/processing/cleanup is active; paused
+and terminal batches can be reopened later. Shutdown stops active work before DB
+connections and the project lease are released.
+
+Discovery runs asynchronously, performs bounded traversal with incremental DB
+inserts, and never probes every file in the request dispatcher. Keep directory
+enumeration, sorting, IPC pages, and exclusions bounded rather than holding the
+entire tree in RAM. Inspection for the current item runs in a cancellable worker,
+reusing fingerprint/probe logic and owned child-process cleanup.
+
+Claim one PENDING item as INSPECTING in a short transaction. After successful
+inspection, create exactly one analysis run and attach its ID to that item in the
+same transaction, before launching it. Do not create analysis runs for the rest
+of the queue. Existing `analysis_runs` and detector/finding/evidence records remain
+authoritative; batch items record scheduling, not duplicated QC results.
+
+Use separate SQLite connections per thread and short transactions. Serialize item
+claiming, Pause/Stop acceptance, and terminal commits. Advance only after the current
+worker and its owned processes have cleaned up, not simply on a terminal event.
+Persist before publishing events. Public analysis start/retry/cancel must not bypass
+batch ownership: controls on batch-owned active runs return BATCH_CONFLICT and
+direct the caller to batch controls; internal cancellation still reuses JobManager.
+
+### States and transitions
+
+| Batch state | Permitted next states / cause |
+|---|---|
+| IMPORTING | READY after complete discovery; STOPPING on Stop; FAILED on fatal discovery error; INTERRUPTED on crash |
+| READY | RUNNING on Start with candidates/settings; STOPPING on Stop |
+| RUNNING | PAUSING on Pause with active file; PAUSED on Pause between files; STOPPING on Stop; COMPLETED when queue exhausted; FAILED on infrastructure failure; INTERRUPTED on crash |
+| PAUSING | PAUSED after cleanup with pending files; COMPLETED if the last file finishes; STOPPING on Stop; FAILED or INTERRUPTED |
+| PAUSED | RUNNING on Resume; STOPPING on Stop |
+| STOPPING | STOPPED after cancellation and cleanup; reconciliation completes this intent after a crash |
+| INTERRUPTED | RUNNING only on explicit Continue pending files for a fully discovered batch with a saved profile; STOPPING on Stop |
+| COMPLETED / STOPPED / FAILED | Terminal; retry requires a new batch |
+
+INTERRUPTED is quiescent and reportable, but conditionally resumable as above.
+Repeated Pause during PAUSING/PAUSED, Resume during RUNNING, Start during RUNNING,
+or Stop during STOPPING/STOPPED returns current state without duplicate work.
+Other invalid transitions return BATCH_INVALID_STATE. Resume during PAUSING is
+invalid; wait until the current file finishes. An exhausted batch becomes COMPLETED
+even if some items are ERROR; show "Completed with errors" rather than a batch PASS.
+
+| Item state | Permitted next states / meaning |
+|---|---|
+| PENDING | INSPECTING when claimed; CANCELLED on Stop |
+| INSPECTING | RUNNING when a run is created/linked; ERROR on inspection failure; CANCELLED on Stop |
+| RUNNING | COMPLETED, ERROR, or CANCELLED according to the linked run |
+| COMPLETED / ERROR / CANCELLED | Terminal; never reset for retry |
+| EXCLUDED | Import record only; never scheduled or included in queue totals |
+
+Pause does not freeze a detector or subprocess. It allows the active file, including
+evidence and enabled optional AI, to finish and schedules nothing further. Stop
+first persists STOPPING and blocks new claims, then signals active cancellation and
+terminates owned ffprobe/FFmpeg children. Pending items become CANCELLED without
+creating synthetic runs. A linked active run must reach CANCELLED and emit its
+existing terminal event. A completion committed before Stop remains COMPLETED.
+If Stop wins the terminal-commit race, the active run/item is CANCELLED. Preserve
+partial findings for diagnosis without giving incomplete runs a verdict.
+
+Per-file media/detector failures produce ERROR and allow safe continuation. Missing
+bundled tools, lost persistence, or other infrastructure failure halts scheduling,
+cancels owned work, and records FAILED when storage is available; unattempted items
+remain PENDING for explicit new-batch retry. Never continue while durable state is
+unknown. Surface persistence failure to the UI even if it cannot be written to DB.
+
+### Recovery and retries
+
+Acquire the project lease before recovery. Reconcile on startup via the existing
+journal and whenever a project opens; recovery must not depend on a journal entry
+for each unstarted item. Completed runs always win over stale active item state.
+Failed/cancelled runs map to ERROR/CANCELLED. Recover nonterminal runs as
+FAILED / ENGINE_INTERRUPTED under the existing rule. An INSPECTING item with no
+run becomes ERROR / ENGINE_INTERRUPTED. Do not fabricate or restart a run.
+
+For a fully discovered RUNNING/PAUSING batch interrupted unexpectedly, preserve
+PENDING items, reconcile active items, and enter INTERRUPTED when pending work
+remains; if all items are terminal, finalize COMPLETED. Offer Continue pending files
+with the original profile snapshot and AI mode, without retrying ERROR items.
+A persisted STOPPING intent finishes as STOPPED and cancels remaining pending items.
+Interrupted discovery has `discovery_completed_at = NULL`, retains its partial
+import records, and cannot continue; require a new import. READY/PAUSED and terminal
+batches otherwise retain state. Graceful closure stops active batches; it does not
+turn a deliberately stopped queue into resumable pending work.
+
+Retry selected ERROR/CANCELLED items (or unattempted items from a FAILED batch) as
+a new batch with original-item references and the saved settings. The old batch,
+runs, findings, and reports remain. Explicit retry performs a fresh source identity
+capture; ordinary Resume never silently accepts a changed source.
+
+### Read models, progress, and presentation
+
+Aggregate/filter in SQLite; return compact batch metadata plus bounded item pages.
+Do not call full project summaries or `analysis.get` for every row. Revisions are
+monotonic per batch: increment on persisted import/state/item changes and on linked
+run disposition changes that affect the displayed summary. Commit the latter with
+the disposition update. Progress events carry a separate monotonic sequence within
+an engine session; snapshots are the recovery source if events are lost.
+
+For a frozen queue, total excludes EXCLUDED; processed = COMPLETED + ERROR;
+processing = INSPECTING + RUNNING (0 or 1). The partition is:
+total = PASS + WARN + FAIL + ERROR + CANCELLED + processing + PENDING.
+Use authoritative completed-run verdicts; an inconsistent missing verdict is a
+recovery error, never an assumed PASS. Needs attention = WARN + FAIL + ERROR.
+
+Overall file-weighted progress = (processed + active_fraction) / total, or 0 for
+an empty queue. `active_fraction` is engine-derived, clamped below 1 until terminal
+commit, and monotonic within that item's attempt; unknown inspection progress is
+indeterminate (contributes 0). Include evidence/finalization before completion.
+Cancelled attempts contribute 0; Stop can lower the displayed estimate, which must
+be explained by the stopped state. Do not present 100% QC coverage for unattempted
+cancelled items. The estimate is not time-weighted or an ETA; never fake smoothing.
+
+Engine presentation adapters derive optional human-readable comparisons from saved
+measurements, finding thresholds, and the saved run profile only. They may perform
+unit-aware display arithmetic but never change finding severity, raw data, or QC
+policy. Unknown schemas fall back to saved descriptions and labeled values.
+
+Batch report generation takes a consistent DB snapshot and saves a unique artifact
+and revision. Permit only paused/terminal batches; reject Resume/Start while report
+generation owns the scheduler reservation. Do not let a synchronous report request
+block Stop of another running batch. Existing detailed report export must likewise
+avoid monopolizing the dispatcher during active batch work (defer with BATCH_BUSY).
+Keep report memory bounded through paged/streamed summary rows; no bulk evidence.

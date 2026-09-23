@@ -135,6 +135,7 @@ class JobManager:
         asset_id: str,
         profile: dict[str, object],
         ai_mode: str = "OFF",
+        batch_item_id: str | None = None,
     ) -> dict[str, object]:
         if (
             self.active
@@ -168,6 +169,7 @@ class JobManager:
             profile,
             asset["fast_fingerprint_sha256"],
             ai_mode,
+            batch_item_id,
         )
         self.identifier = identifier
         self.token = CancellationToken()

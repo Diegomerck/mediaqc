@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { expect, test, vi } from 'vitest';
 import AudioResults from '../src/AudioResults';
 import { jobs, type Finding, type Run } from '../src/jobs';
@@ -68,10 +68,20 @@ test('shows saved audio result, raw measurements, thresholds and evidence', () =
   render(<AudioResults run={run} />);
   expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Clipping evidence' }));
-  expect(screen.getByText(/4800/u)).toBeTruthy();
-  expect(screen.getByText(/-0.01/u)).toBeTruthy();
+  expect(
+    within(screen.getByRole('region', { name: 'Issue inspector' })).getByText(
+      '4800',
+    ),
+  ).toBeTruthy();
+  expect(
+    within(screen.getByRole('region', { name: 'Issue inspector' })).getByText(
+      '-0.01',
+    ),
+  ).toBeTruthy();
   expect(screen.getByText(/evidence\/audio\/run\/finding.json/u)).toBeTruthy();
-  expect(screen.getByText(/INSUFFICIENT_QUIET_REGIONS/u)).toBeTruthy();
+  const technical = screen.getByText('Technical Details').closest('details');
+  expect(technical?.open).toBe(false);
+  expect(technical?.textContent).toContain('INSUFFICIENT_QUIET_REGIONS');
 });
 test('missing evidence is explicit and cancelled runs remain incomplete', () => {
   render(
@@ -175,7 +185,11 @@ test('Phase 8 advisory review preserves raw results and requires operator dispos
     screen.getByRole('region', { name: 'Optional local AI review' }),
   ).toBeTruthy();
   expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();
-  expect(screen.getByText(/4800/u)).toBeTruthy();
+  expect(
+    within(screen.getByRole('region', { name: 'Issue inspector' })).getByText(
+      '4800',
+    ),
+  ).toBeTruthy();
   expect(
     screen.getByRole('button', { name: 'Mark False Positive' }),
   ).toBeTruthy();
@@ -189,7 +203,11 @@ test('Phase 8 unavailable review is explicit without hiding deterministic findin
   render(<AudioResults run={{ ...run, ai_mode: 'LOCAL' }} />);
   expect(screen.getByText(/AI review unavailable/u)).toBeTruthy();
   expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();
-  expect(screen.getByText(/4800/u)).toBeTruthy();
+  expect(
+    within(screen.getByRole('region', { name: 'Issue inspector' })).getByText(
+      '4800',
+    ),
+  ).toBeTruthy();
 });
 
 test('Phase 8 OFF preserves deterministic view without AI results', () => {

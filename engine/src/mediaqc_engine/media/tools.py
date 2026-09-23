@@ -1,6 +1,7 @@
 """Bundled media tool resolution and bounded subprocess ownership."""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -74,9 +75,12 @@ class MediaTools:
         # Temporary output is in the engine cache, never adjacent to source media.
         cache = self.cache or Path(tempfile.gettempdir()) / "MediaQC/cache"
         cache.mkdir(parents=True, exist_ok=True)
+        # The child shares these file positions. Buffered seek/tell bookkeeping
+        # can race with its writes on Windows, yielding truncated probe JSON.
+        # Inspect file sizes without moving the writer's cursor.
         with (
-            tempfile.TemporaryFile(dir=cache) as output,
-            tempfile.TemporaryFile(dir=cache) as errors,
+            tempfile.TemporaryFile(dir=cache, buffering=0) as output,
+            tempfile.TemporaryFile(dir=cache, buffering=0) as errors,
         ):
             try:
                 with (
@@ -97,8 +101,8 @@ class MediaTools:
                         if (
                             self.cancelled.is_set()
                             or time.monotonic() >= deadline
-                            or output.tell() > 64 * 1024
-                            or errors.tell() > 64 * 1024
+                            or os.fstat(output.fileno()).st_size > 64 * 1024
+                            or os.fstat(errors.fileno()).st_size > 64 * 1024
                         ):
                             raise AppError(
                                 "MEDIA_INSPECTION_FAILED",

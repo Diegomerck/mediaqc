@@ -253,6 +253,8 @@ def test_migration_backup_and_rollback(tmp_path: Path) -> None:
     project = Project.create(tmp_path / "project", "Migration")
     path = project.path
     with project.connection:
+        for table in ("batch_reports", "batch_items", "batches"):
+            project.connection.execute(f"DROP TABLE {table}")
         project.connection.execute("DROP TABLE ai_reviews")
         project.connection.execute("UPDATE schema_meta SET value='1'")
     project.close()
@@ -271,7 +273,7 @@ def test_migration_backup_and_rollback(tmp_path: Path) -> None:
     db.close()
     project = Project.open(path)
     assert (
-        project.connection.execute("SELECT value FROM schema_meta").fetchone()[0] == "2"
+        project.connection.execute("SELECT value FROM schema_meta").fetchone()[0] == "3"
     )
     project.close()
     backup = sqlite3.connect(path.with_name("project.schema-v1.sqlite.bak"))

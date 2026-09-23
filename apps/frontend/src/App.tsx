@@ -81,109 +81,116 @@ export default function App() {
       <header>
         <p className="eyebrow">LOCAL MEDIA QUALITY CONTROL</p>
         <h1>MediaQC</h1>
-        <p className="muted">Local projects and media inspection · Phase 3</p>
+        <p className="muted">Offline batch quality control</p>
       </header>
       {phase === 'ready' && <ProjectView key={status?.pid} />}
-      <section
-        className="panel"
-        aria-labelledby="engine-heading"
-        aria-busy={working}
-      >
-        <div className="row">
-          <h2 id="engine-heading">Engine diagnostics</h2>
-          <span className={`badge ${phase}`}>Engine: {phase}</span>
-        </div>
-        <p>
-          Start the bundled local engine to open projects and inspect media.
-        </p>
-        <div className="actions">
-          <button
-            disabled={working || phase === 'ready' || phase === 'connecting'}
-            onClick={() => {
-              void perform('start');
-            }}
-          >
-            {phase === 'error' ? 'Restart engine' : 'Start engine'}
-          </button>
-          <button
-            disabled={working || phase !== 'ready'}
-            onClick={() => {
-              void perform('ping');
-            }}
-          >
-            Send system.ping
-          </button>
-          <button
-            className="secondary"
-            disabled={working || phase !== 'ready'}
-            onClick={() => {
-              void perform('stop');
-            }}
-          >
-            Stop engine
-          </button>
-        </div>
-        <p role="status" className="notice">
-          {phase === 'error'
-            ? 'Engine unavailable. Restart it to continue connection checks.'
-            : notice}
-        </p>
-        {failure && (
-          <div role="alert" className="error-box">
-            <h3>Engine connection failed</h3>
-            <p>{failure.message}</p>
-            <p>
-              Connection checks cannot continue until the engine is available.
-              Restart the engine; if the problem persists, relaunch or reinstall
-              MediaQC.
-            </p>
-            <p>
-              <strong>Code:</strong> {failure.code}
-            </p>
+      <details open={phase !== 'ready'}>
+        <summary>Engine diagnostics</summary>
+        <section
+          className="panel"
+          aria-labelledby="engine-heading"
+          aria-busy={working}
+        >
+          <div className="row">
+            <h2 id="engine-heading">Engine diagnostics</h2>
+            <span className={`badge ${phase}`}>Engine: {phase}</span>
           </div>
-        )}
-        <dl className="diagnostics">
-          <div>
-            <dt>Desktop version</dt>
-            <dd>{status?.desktop_version ?? '—'}</dd>
+          <p>
+            Start the bundled local engine to open projects and inspect media.
+          </p>
+          <div className="actions">
+            <button
+              disabled={working || phase === 'ready' || phase === 'connecting'}
+              onClick={() => {
+                void perform('start');
+              }}
+            >
+              {phase === 'error' ? 'Restart engine' : 'Start engine'}
+            </button>
+            <button
+              disabled={working || phase !== 'ready'}
+              onClick={() => {
+                void perform('ping');
+              }}
+            >
+              Send system.ping
+            </button>
+            <button
+              className="secondary"
+              disabled={working || phase !== 'ready'}
+              onClick={() => {
+                void perform('stop');
+              }}
+            >
+              Stop engine
+            </button>
           </div>
-          <div>
-            <dt>Engine version</dt>
-            <dd>{capabilities?.engine_version ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Protocol version</dt>
-            <dd>{capabilities?.protocol_version ?? '—'}</dd>
-          </div>
-          <div>
-            <dt>Schema contract version</dt>
-            <dd>
-              {capabilities?.schema_version ?? '—'}{' '}
-              <span className="muted">(SQLite project schema)</span>
-            </dd>
-          </div>
-          <div>
-            <dt>FFmpeg / ffprobe</dt>
-            <dd>
-              {capabilities
-                ? `${capabilities.ffmpeg.version ?? 'Unavailable'} / ${capabilities.ffprobe.version ?? 'Unavailable'}`
-                : '—'}
-            </dd>
-          </div>
-          <div>
-            <dt>Detectors / local AI</dt>
-            <dd>{capabilities ? 'Unavailable in Phase 3' : '—'}</dd>
-          </div>
-          <div>
-            <dt>Engine process</dt>
-            <dd>{status?.pid ?? '—'}</dd>
-          </div>
-          <div className="wide">
-            <dt>Diagnostic log</dt>
-            <dd>{status?.log_path ?? 'Connecting to desktop…'}</dd>
-          </div>
-        </dl>
-      </section>
+          <p role="status" className="notice">
+            {phase === 'error'
+              ? 'Engine unavailable. Restart it to continue connection checks.'
+              : notice}
+          </p>
+          {failure && (
+            <div role="alert" className="error-box">
+              <h3>Engine connection failed</h3>
+              <p>{failure.message}</p>
+              <p>
+                Connection checks cannot continue until the engine is available.
+                Restart the engine; if the problem persists, relaunch or
+                reinstall MediaQC.
+              </p>
+              <p>
+                <strong>Code:</strong> {failure.code}
+              </p>
+            </div>
+          )}
+          <dl className="diagnostics">
+            <div>
+              <dt>Desktop version</dt>
+              <dd>{status?.desktop_version ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Engine version</dt>
+              <dd>{capabilities?.engine_version ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Protocol version</dt>
+              <dd>{capabilities?.protocol_version ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>Schema contract version</dt>
+              <dd>
+                {capabilities?.schema_version ?? '—'}{' '}
+                <span className="muted">(SQLite project schema)</span>
+              </dd>
+            </div>
+            <div>
+              <dt>FFmpeg / ffprobe</dt>
+              <dd>
+                {capabilities
+                  ? `${capabilities.ffmpeg.version ?? 'Unavailable'} / ${capabilities.ffprobe.version ?? 'Unavailable'}`
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>Detectors / local AI</dt>
+              <dd>
+                {capabilities
+                  ? `${String(capabilities.detectors.length)} detectors · AI optional`
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>Engine process</dt>
+              <dd>{status?.pid ?? '—'}</dd>
+            </div>
+            <div className="wide">
+              <dt>Diagnostic log</dt>
+              <dd>{status?.log_path ?? 'Connecting to desktop…'}</dd>
+            </div>
+          </dl>
+        </section>
+      </details>
       <footer>Offline desktop · Source media stays untouched</footer>
     </main>
   );

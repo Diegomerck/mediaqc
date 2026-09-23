@@ -1,6 +1,6 @@
 # 10 — Windows Build, Packaging, and Offline Distribution
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## 1. Target
 
@@ -35,9 +35,13 @@ Developer build produces:
 - bundled ffprobe;
 - built-in QC profile resources;
 - report templates;
-- installer.
+- installer;
+- portable Windows x64 ZIP containing the complete application/resource folder.
 
 Installer format may be MSI or NSIS/exe based on Tauri packaging decision.
+
+The existing NSIS installer and portable ZIP remain first-class Phase 10 targets.
+Phase 10 does not change the packaging toolchain or introduce runtime dependencies.
 
 ## 4. Resource layout
 
@@ -211,3 +215,43 @@ CI cloud use for developers is allowed; the shipped application itself remains o
 - App works with outbound network blocked.
 - Uninstall does not delete projects/source media.
 - Diagnostics show exact component versions.
+
+## 18. Phase 10 installed and portable batch validation
+
+Preserve the existing packaged Python engine, bundled FFmpeg/ffprobe, profiles,
+numerical/reporting dependencies, and native process ownership. Include migration
+003 when implemented. Specification version 1.1.0 is not an application-release
+version bump; change runtime schema reporting to 3 only when that migration exists.
+No production AI model/runtime is added; batch operation is fully usable with AI OFF.
+
+The NSIS installer retains the offline Evergreen WebView2 installer arrangement.
+The portable ZIP requires an already installed Evergreen WebView2 Runtime; it must
+not download/install it at launch. Retain this prerequisite in release instructions.
+No Python, Node/npm, Rust, Git, Visual Studio, FFmpeg, CUDA, service, or account may
+become an end-user prerequisite. Do not infer portable independence from WebView2.
+
+Projects live in user-selected writable directories outside application resources
+and source-media directories. Batch DB rows, reports, evidence, logs, and caches
+follow the existing project/application-data layout; no outputs beside source media.
+Moving the portable application folder does not relocate original source paths;
+missing/changed sources must remain explicit without discarding saved results.
+
+For both installation and portable extraction on a clean Windows test machine,
+with outbound network blocked and no developer tooling:
+
+1. Launch with AI OFF and verify packaged tools resolve independently of PATH/CWD.
+2. Open an existing schema-2 project, verify backup/migration and retained history.
+3. Import mixed WAV/MP3/MP4/MXF plus unsupported/corrupt examples; review exclusions.
+4. Run a 100+ file batch; verify sequential execution, dashboard counts, and paging.
+5. Pause/Resume, inspect a completed file while another runs, and review evidence.
+6. Stop during active work; verify no owned orphan processes and retained results.
+7. Reopen saved batches; export per-run and compact batch HTML/PDF offline.
+8. Simulate unexpected termination; explicitly continue pending work after recovery.
+9. Check source immutability and bounded engine/child/UI resource behavior.
+10. Relocate the extracted portable folder (including spaces/Unicode) and repeat
+    open/review/start checks with unchanged external project/source locations.
+11. Verify uninstall/application-folder removal retains external projects and sources.
+
+Record versions, fixture composition, environment/prerequisites, outputs, and limits
+in Phase 10 release evidence. Existing Phase 9 validation is a baseline, not evidence
+that new batch behavior passed. This amendment alone authorizes no build/package run.

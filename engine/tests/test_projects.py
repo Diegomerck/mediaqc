@@ -46,7 +46,7 @@ def test_canonical_schema_and_pragmas(tmp_path: Path) -> None:
             project.connection.execute(
                 "SELECT value FROM schema_meta WHERE key='schema_version'"
             ).fetchone()[0]
-            == "2"
+            == "3"
         )
         with pytest.raises(sqlite3.IntegrityError):
             project.connection.execute(

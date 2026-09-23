@@ -13,7 +13,14 @@ def capabilities(provider: ai.Provider | None = None) -> dict[str, object]:
     return {
         "engine_version": __version__,
         "protocol_version": PROTOCOL_VERSION,
-        "schema_version": 2,
+        "schema_version": 3,
+        "batch": {
+            "available": True,
+            "contract_version": "1.0",
+            "folder_extensions": [".wav", ".mp3", ".mp4", ".mxf"],
+            "max_active_files": 1,
+            "page_size": 50,
+        },
         "platform": "windows" if sys.platform == "win32" else sys.platform,
         "ffmpeg": MediaTools().capability("ffmpeg"),
         "ffprobe": MediaTools().capability("ffprobe"),

@@ -4,6 +4,7 @@ import hashlib
 import html
 import json
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 from typing import cast
 from uuid import uuid4
@@ -184,7 +185,7 @@ def sections(project: Project, identifier: str) -> Sections:
     return result
 
 
-def write_html(path: Path, content: Sections) -> None:
+def write_html(path: Path, content: Iterable[tuple[str, str]]) -> None:
     with path.open("x", encoding="utf-8", newline="\n") as output:
         output.write(
             '<!doctype html><html lang="en"><meta charset="utf-8">'
@@ -207,7 +208,9 @@ def write_html(path: Path, content: Sections) -> None:
         output.write("</body></html>\n")
 
 
-def write_pdf(path: Path, content: Sections) -> None:
+def write_pdf(
+    path: Path, content: Iterable[tuple[str, str]], *, compact: bool = False
+) -> None:
     # Imports are local so HTML remains usable if the PDF installation is damaged.
     import reportlab  # type: ignore[import-untyped]
     from reportlab.pdfbase import pdfmetrics  # type: ignore[import-untyped]
@@ -245,8 +248,11 @@ def write_pdf(path: Path, content: Sections) -> None:
         if y < 100:
             page()
             y = 790
-        y -= 12
-        line(heading, 13)
+        if compact:
+            text = heading + " | " + text
+        else:
+            y -= 12
+            line(heading, 13)
         for original in text.splitlines():
             # Never silently replace characters with missing-glyph squares.
             safe = "".join(

@@ -1,6 +1,9 @@
 # MediaQC development setup
 
-The active implementation is Phase 9 of `MASTER_SPEC.md`: Windows packaging/performance.
+Phase 10 batch processing and operator UX are implemented against specification
+package 1.1.0, including SQLite schema 3. See [Phase 10](PHASE_10.md) for the
+implementation, changed files, focused validation, and deferred release checks.
+The final full quality-gate/build/package pass still requires explicit approval.
 See [Windows release](WINDOWS_RELEASE.md) for packaging, portable prerequisites,
 signing and clean-machine validation. The Phase 8 AI provider remains optional;
 no production model is bundled.
