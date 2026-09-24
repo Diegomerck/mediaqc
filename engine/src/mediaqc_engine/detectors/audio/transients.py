@@ -84,11 +84,11 @@ class DropoutDetector(AudioDetector):
             GapState(max(1, round(number(policy, "context_ms"))))
             for _ in range(int(str(stream["channel_count"])))
         ]
-        for start, samples, rate in windows(context, stream, 0.001):
-            for channel, level in enumerate(np.mean(samples * samples, axis=0)):
-                event = states[channel].feed(
-                    start, start + len(samples) / rate, float(level), policy
-                )
+        from mediaqc_engine.detectors.audio.dsp import power_windows
+
+        for start, end, powers in power_windows(context, stream, 0.001):
+            for channel, level in enumerate(powers):
+                event = states[channel].feed(start, end, float(level), policy)
                 if event is not None:
                     begin, end, measurements = event
                     measurements["channel_indices"] = [channel]

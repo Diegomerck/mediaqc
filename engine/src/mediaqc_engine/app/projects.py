@@ -193,6 +193,9 @@ class Projects:
                     candidate.close()
                     raise
                 recover(candidate.connection)
+                from mediaqc_engine.detectors.audio.pcm import recover as recover_pcm
+
+                recover_pcm(candidate.path.parent / "cache")
                 batches.reconcile(
                     candidate.connection,
                     lambda identifier: self.batches.notify(

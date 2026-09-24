@@ -20,7 +20,7 @@
     },
     {
       "path": "specs/02_ARCHITECTURE.md",
-      "bytes": 14362
+      "bytes": 15103
     },
     {
       "path": "specs/03_DATABASE.md",
@@ -36,11 +36,11 @@
     },
     {
       "path": "specs/06_IPC_SPEC.md",
-      "bytes": 17332
+      "bytes": 17641
     },
     {
       "path": "specs/07_UI_SPEC.md",
-      "bytes": 10488
+      "bytes": 10887
     },
     {
       "path": "specs/08_AI_SPEC.md",
@@ -48,7 +48,7 @@
     },
     {
       "path": "specs/09_TESTING_SPEC.md",
-      "bytes": 13053
+      "bytes": 13605
     },
     {
       "path": "specs/10_WINDOWS_BUILD.md",

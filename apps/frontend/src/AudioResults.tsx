@@ -93,6 +93,11 @@ export default function AudioResults({ run: initial }: { run: Run }) {
   return (
     <section aria-label={`${mediaLabel} QC results`}>
       <p>Profile: {profileLabel(run.qc_profile_snapshot_json)}</p>
+      {run.interpretation_notes?.map((note) => (
+        <p role="note" key={note}>
+          {note}
+        </p>
+      ))}
       <h4>
         {mediaLabel} QC: {run.overall_result ?? 'Incomplete'}
       </h4>

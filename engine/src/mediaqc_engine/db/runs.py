@@ -152,6 +152,7 @@ def recover(db: sqlite3.Connection) -> None:
 
 def summary(db: sqlite3.Connection, identifier: str) -> dict[str, object]:
     from mediaqc_engine.db.findings import counts, list_findings
+    from mediaqc_engine.media.loudness_scope import notes
 
     run = fetch(db, identifier)
     executions = [
@@ -182,6 +183,7 @@ def summary(db: sqlite3.Connection, identifier: str) -> dict[str, object]:
             ).fetchone()
         ),
         "analysis_run_id": identifier,
+        "interpretation_notes": notes(db, identifier),
         "detector_states": executions,
         "summary": {
             "dispositions": {

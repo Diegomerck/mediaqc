@@ -363,6 +363,11 @@ saved descriptions and labeled measurements.
 Keep finding selection, timeline, evidence, dispositions, and notes. Load evidence
 only for the selected finding and release prior previews on selection changes.
 Missing/stale evidence and execution errors remain visible outside Technical details.
+Loudness interpretation notes also remain visible outside Technical details.
+When multichannel assignment is unspecified, identify decoder layout assumptions
+and label loudness provisional. Multiple audio streams must not imply a combined
+program measurement without known grouping. Preserve the original findings and
+QC verdict; these qualifications must also appear in detailed and batch reports.
 Ignored/false-positive findings remain accessible through existing filters. Saving a
 disposition refreshes the file verdict and affected batch counts/filter.
 

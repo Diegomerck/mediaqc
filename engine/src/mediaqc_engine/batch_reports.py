@@ -81,6 +81,11 @@ def sections(
         (identifier,),
     ):
         from mediaqc_engine.db.findings import counts as issue_counts
+        from mediaqc_engine.media.loudness_scope import notes
+
+        scope_notes = (
+            notes(db, row["analysis_run_id"]) if row["analysis_run_id"] else []
+        )
 
         issues = (
             issue_counts(db, row["analysis_run_id"])
@@ -98,6 +103,7 @@ def sections(
                     else ""
                 )
                 + (f" | {row['error_message']}" if row["error_message"] else "")
+                + (" | " + " ".join(scope_notes) if scope_notes else "")
             ),
         )
     for row in db.execute(

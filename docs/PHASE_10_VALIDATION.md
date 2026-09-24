@@ -4,7 +4,59 @@ Automated validation: **PASS**. Complete clean-machine release acceptance:
 **UNVERIFIED**, pending the manual checks below. No commit, push, merge, dependency
 installation/download, or git-history modification was performed.
 
-## Previously completed and retained
+## Optimization release closeout — 2026-09-24
+
+The optimized installed build completed the operator's same four-file MP3/WAV/
+MP4/MXF batch with General Technical QC 1.2.0 and AI OFF in **210.0 seconds**
+(reported local time 11:08:30–11:12:00). Original installed time was 358.7 seconds;
+the separate development-engine comparison was 238.3 seconds. The observed
+installed-to-installed reduction is approximately **41.5%**. This is a manual,
+single-run observation, not a controlled benchmark. See
+[performance closeout](PHASE_10_PERFORMANCE_FIX.md) for methodology and limits.
+
+Current validation: 330 Python tests (including 30 batch cases), 44 frontend,
+3 baseline, and 6 Rust unit + 12 integration tests passed. The full gate ran once;
+its sole failure was CRLF formatting in 14 otherwise unchanged working-tree files.
+All 14 pass in HEAD with the actual repository Prettier configuration. LF-only
+corrections and the formatting-only rerun passed; all 22 requirements are satisfied
+without repeating successful suites or builds. No detector/profile recalibration
+or verdict change was made.
+
+Fresh NSIS/portable packaging and relocated WAV/MP3/MP4/MXF acceptance passed,
+including source/resource immutability, cancellation/retry, saved results/evidence,
+reopen, HTML/PDF reports, corrupt media, and unavailable-AI fallback. Verified the
+ZIP checksum, all 311 manifest files, and embedded optimization/safeguard bytecode.
+Cached NSIS and offline Evergreen WebView2 were retained; portable still requires
+installed Evergreen WebView2. No dependencies were downloaded or installed.
+
+Current artifacts (supersede the historical artifact identities below):
+
+- Installer: `apps/desktop/src-tauri/target/release/bundle/nsis/MediaQC_0.0.0_x64-setup.exe`
+  — 342,268,929 bytes.
+  SHA-256: `4aedace7b99c274e643eaf21776a351c5479bbd375aa719faf9a83e0924e6c2b`.
+- Portable: `dist/MediaQC-20260924T165718Z-portable-x64.zip`
+  — 180,331,700 bytes; SHA-256 sidecar alongside it.
+  SHA-256: `51ad322578e78f2e8e6efcb1dd459ad0305352b6d0d72844effbcc91390b7c5d`.
+
+Local evidence is ignored under `.cache/`: `phase10-optimization-final-gate.log`,
+`phase10-format-maintenance-gate.log`, `phase10-optimization-final-artifacts.json`,
+`phase10-optimization-artifact-verification.json`, and
+`phase10-optimization-packaged-acceptance/summary.json`. The manual benchmark is
+the operator's report, not a new automated run or an independent finding re-audit.
+
+Remaining clean-machine/firewall/uninstall and resource acceptance listed below
+is still open. A larger known-good/known-bad detector reference corpus and separate
+profile calibration are also outstanding; four operator-designated clean samples
+do not establish universal thresholds. Current uncommitted work is on `main`;
+the branch/status snapshot below is historical, not the current commit inventory.
+
+## Historical initial Phase 10 validation
+
+The remaining record describes the earlier release before the runtime fixes and
+performance work. Counts, artifact identities, and working-tree status here are
+retained as historical evidence, not current release claims.
+
+### Previously completed and retained
 
 - All 22 repository gate stages passed, combining the original gate with only
   failed/environment-blocked portions rerun. See `.cache/phase10-final-gate-summary.json`.

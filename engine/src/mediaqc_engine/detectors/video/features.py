@@ -1,7 +1,8 @@
 """Bounded per-frame OpenCV features and disk-backed decoded timestamp cache.
 
 FFprobe supplies original decoded PTS; FFmpeg emits one RGB frame per decoded
-frame with passthrough sync. No OpenCV container reader or alternate child owner.
+frame with passthrough sync and transport-only ordinal timestamps. No OpenCV
+container reader or alternate child owner.
 """
 
 import json
@@ -157,6 +158,8 @@ def cache(
             with closing(
                 context.media_tools.stream(
                     [
+                        "-threads",
+                        "4",
                         "-protocol_whitelist",
                         "file",
                         "-select_streams",
@@ -209,7 +212,13 @@ def cache(
                         "-sn",
                         "-dn",
                         "-vf",
-                        f"scale={width}:{height}:flags=area",
+                        # Raw RGB carries no timing. Give its encoder/muxer an
+                        # ordinal clock so source PTS cannot collide when rounded
+                        # to the default output timebase. Measurements above/below
+                        # still use unmodified ffprobe PTS, paired by frame order.
+                        f"scale={width}:{height}:flags=area,settb=1/1,setpts=N",
+                        "-enc_time_base",
+                        "filter",
                         "-fps_mode",
                         "passthrough",
                         "-pix_fmt",
