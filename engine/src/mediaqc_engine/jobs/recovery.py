@@ -59,6 +59,11 @@ class Journal:
                     lease = Lease(path)
                     try:
                         recover(project.connection)
+                        from mediaqc_engine.detectors.audio.pcm import (
+                            recover as recover_pcm,
+                        )
+
+                        recover_pcm(project.path.parent / "cache")
                         reconcile(project.connection)
                     finally:
                         lease.close()

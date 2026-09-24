@@ -32,6 +32,80 @@ fn main() {
     println!("ping: {}", controller.ping().expect("system.ping"));
     println!("pid: {}", controller.snapshot().pid.expect("engine pid"));
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|argument| argument == "--batch") {
+        let project = controller.request("project.create".into(),
+            serde_json::json!({"directory":args[2],"name":"Batch event regression","summary_mode":"compact"})).unwrap();
+        let batch = controller.request("batch.create".into(),
+            serde_json::json!({"project_id":project["id"],"name":"MP4 regression","source_kind":"FILE","absolute_path":args[3]})).unwrap();
+        let wait = |target: &str| {
+            let deadline = Instant::now() + Duration::from_secs(120);
+            loop {
+                let snapshot = controller
+                    .request(
+                        "batch.get".into(),
+                        serde_json::json!({"batch_id":batch["batch_id"]}),
+                    )
+                    .unwrap();
+                if snapshot["status"] == target {
+                    return snapshot;
+                }
+                assert!(
+                    !matches!(snapshot["status"].as_str(), Some("FAILED" | "STOPPED")),
+                    "{snapshot}"
+                );
+                assert!(Instant::now() < deadline, "{snapshot}");
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        };
+        wait("READY");
+        controller
+            .request(
+                "batch.start".into(),
+                serde_json::json!({"batch_id":batch["batch_id"],
+            "profile_key":"general_technical_qc","profile_version":"1.2.0","ai_mode":"OFF"}),
+            )
+            .unwrap();
+        let finished = wait("COMPLETED");
+        assert_eq!(finished["counts"]["processed"], 1);
+        assert_eq!(finished["counts"]["error"], 0);
+        let page = controller
+            .request(
+                "batch.items".into(),
+                serde_json::json!({"batch_id":batch["batch_id"]}),
+            )
+            .unwrap();
+        let run = controller
+            .request(
+                "analysis.get".into(),
+                serde_json::json!({"analysis_run_id":page["items"][0]["analysis_run_id"]}),
+            )
+            .unwrap();
+        assert_eq!(run["status"], "COMPLETED");
+        assert_eq!(controller.ping().unwrap(), serde_json::json!({"pong":true}));
+        for name in [
+            "batch.discovery",
+            "batch.status",
+            "batch.item_changed",
+            "batch.progress",
+            "batch.completed",
+            "analysis.completed",
+        ] {
+            assert!(
+                events
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .any(|event| event["event"] == name),
+                "missing {name}"
+            );
+        }
+        assert_eq!(controller.snapshot().phase, "ready");
+        controller.quit().unwrap();
+        println!(
+            "PASS: native controller MP4 batch import, QC, forwarded batch/analysis events, selected run and ping"
+        );
+        return;
+    }
     if args.get(1).is_some_and(|argument| {
         argument == "--inspect"
             || argument == "--jobs"

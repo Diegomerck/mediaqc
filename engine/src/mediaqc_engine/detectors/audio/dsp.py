@@ -1,6 +1,6 @@
 """Bounded PCM windows and pure numerical primitives. No QC policy here."""
 
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import closing
 from typing import cast
 
@@ -8,6 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from mediaqc_engine.app.errors import AppError
+from mediaqc_engine.detectors.audio.pcm import chunks
 from mediaqc_engine.detectors.contract import DetectorContext
 
 type Samples = NDArray[np.float64]
@@ -34,7 +35,7 @@ def windows(
     stream: dict[str, object],
     seconds: float,
     overlap: float = 0,
-) -> Iterator[tuple[float, Samples, int]]:
+) -> Generator[tuple[float, Samples, int], None, None]:
     rate, channels = (
         int(str(stream["sample_rate_hz"])),
         int(str(stream["channel_count"])),
@@ -64,7 +65,12 @@ def windows(
         "pipe:1",
     ]
     with closing(
-        context.media_tools.stream(arguments, count * channels * 8)
+        chunks(
+            context,
+            stream,
+            arguments,
+            max(count, 65536 // (channels * 8)) * channels * 8,
+        )
     ) as decoded:
         for chunk in decoded:
             context.cancellation.check()
@@ -89,6 +95,31 @@ def windows(
             raise AppError(
                 "MEDIA_UNSUPPORTED", "Audio stream contains no decoded samples"
             )
+
+
+def power_windows(
+    context: DetectorContext, stream: dict[str, object], seconds: float
+) -> Iterator[tuple[float, float, Samples]]:
+    """Vectorize window power without changing sample boundaries or reduction order."""
+    rate = int(str(stream["sample_rate_hz"]))
+    count = max(1, round(rate * seconds))
+    position = 0
+    for _, samples, _ in windows(context, stream, count * 256 / rate):
+        whole = len(samples) // count * count
+        powers = np.mean(
+            np.square(samples[:whole]).reshape(-1, count, samples.shape[1]), axis=1
+        )
+        for power in powers:
+            context.cancellation.check()
+            yield position / rate, position / rate + count / rate, power
+            position += count
+        if whole < len(samples):
+            yield (
+                position / rate,
+                position / rate + (len(samples) - whole) / rate,
+                np.mean(samples[whole:] ** 2, axis=0),
+            )
+            position += len(samples) - whole
 
 
 def spectrum(samples: Samples, rate: int) -> tuple[Samples, Samples, float]:

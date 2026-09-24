@@ -543,6 +543,11 @@ mode from opening onward; historical standalone runs remain accessible through
 `{runs,total,limit,offset}` with run ID, asset ID, filename, status, overall_result,
 profile name/version, and timestamps, newest first with ID tie-breaker. Maximum 50.
 
+`analysis.get` may add `interpretation_notes: string[]`, derived from saved
+stream metadata. Missing multichannel assignment and unknown grouping of multiple
+audio streams qualify loudness as provisional/per-stream, not definitive program
+compliance. Notes do not change measurements, findings, or verdicts.
+
 Existing analysis.get/finding.list/finding.get/evidence.read serve the selected file
 and finding with existing fields/safeguards. finding.list supports its existing
 limit (default/max 100) and offset (default 0), returning findings and total.

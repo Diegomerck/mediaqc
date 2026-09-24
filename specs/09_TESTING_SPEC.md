@@ -226,6 +226,14 @@ Assert:
 - cancellation works;
 - disk cache behavior documented.
 
+Focused shared-audio validation must cover identical detector outputs with reuse
+enabled/disabled, exact power-window boundaries, one PCM decode per eligible stream,
+disk-budget/storage fallback, cancellation and early close, invalid PCM, failed
+decodes, terminal/recovery cleanup, and source immutability. Verify timestamp output
+equivalence with bounded decoder threading. Validate unknown-layout/multiple-stream
+loudness qualifications in selected-file UI and offline reports without changing
+thresholds, saved measurements or verdict aggregation.
+
 ## 17. Windows matrix
 
 Minimum validation:

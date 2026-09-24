@@ -83,6 +83,16 @@ Use ffprobe machine-readable JSON.
 ### Audio
 Prefer direct decode to float PCM stream/chunks when custom DSP is required.
 
+PCM detectors may reuse a run-local float64 decode, streamed in bounded blocks.
+Temporary PCM storage is capped at 1 GiB across a project's run caches; oversized
+streams or unavailable cache storage fall back to direct decoding. Publish a cache
+only after successful decode; remove partial data on cancellation/error/early close.
+Remove PCM caches on terminal cleanup and under the project lease during recovery.
+This does not authorize a source-file copy or an unbounded decoded-media cache.
+Detector windows, sample ordering, thresholds and execution boundaries stay intact.
+Video timestamp extraction uses four decoder threads within the single active
+file; this does not permit parallel files. Original decoded timestamps are retained.
+
 For EBU loudness/true-peak measurement, FFmpeg filters MAY be used if parsing is stable and covered by tests.
 
 ### Video

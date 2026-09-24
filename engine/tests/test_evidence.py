@@ -210,6 +210,52 @@ def test_failed_generation_is_persisted(saved: tuple[Projects, str, str, Path]) 
     assert detail["measurements"] == {"measured": 1}
 
 
+@pytest.mark.parametrize("saved", ["video"], indirect=True)
+def test_start_of_media_missing_before_frame_is_only_evidence_metadata(
+    saved: tuple[Projects, str, str, Path],
+) -> None:
+    service, run, identifier, _ = saved
+    assert service.project is not None
+    db = service.project.connection
+    with db:
+        db.execute(
+            "UPDATE findings SET start_time_seconds=0,end_time_seconds=0,"
+            "duration_seconds=0,disposition='IGNORED' WHERE id=?",
+            (identifier,),
+        )
+    before = service.dispatch("finding.get", {"finding_id": identifier})
+    tools = MediaTools(cache=service.project.path.parent / "cache")
+    evidence.generate(db, service.project.path.parent, run, tools, CancellationToken())
+    detail = service.dispatch("finding.get", {"finding_id": identifier})
+    errors = cast(dict[str, object], detail["metadata"])["visual_evidence_errors"]
+    assert errors == [
+        {
+            "evidence_type": "VIDEO_FRAME_BEFORE",
+            "code": "EVIDENCE_UNAVAILABLE",
+            "message": "No frame precedes media start",
+            "details": {},
+        }
+    ]
+    kinds = {
+        item["evidence_type"]
+        for item in cast(list[dict[str, object]], detail["evidence"])
+    }
+    assert "VIDEO_FRAME" in kinds and "VIDEO_FRAME_AFTER" in kinds
+    assert "VIDEO_FRAME_BEFORE" not in kinds
+    for field in ("severity", "disposition", "measurements", "threshold"):
+        assert detail[field] == before[field]
+    assert (
+        db.execute(
+            "SELECT COUNT(*) FROM findings WHERE analysis_run_id=?", (run,)
+        ).fetchone()[0]
+        == 1
+    )
+    runs.transition(db, run, "COMPLETED")
+    result = service.dispatch("analysis.get", {"analysis_run_id": run})
+    assert result["status"] == "COMPLETED" and result["overall_result"] == "PASS"
+    assert not tools.pids
+
+
 @pytest.mark.parametrize("mode", ["missing", "changed", "oversize", "escape"])
 def test_artifact_failure_is_explicit(
     saved: tuple[Projects, str, str, Path], mode: str

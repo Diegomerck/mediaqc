@@ -523,7 +523,7 @@ impl Session {
     }
 
     fn event(&self, message: Message) -> Result<(), Failure> {
-        let value = protocol::analysis_event(message)?;
+        let value = protocol::runtime_event(message)?;
         (self.events)(value);
         Ok(())
     }

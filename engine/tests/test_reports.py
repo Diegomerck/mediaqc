@@ -95,6 +95,51 @@ def saved(tmp_path: Path) -> Iterator[tuple[Projects, str, Path]]:
         assert sorted(tmp_path.iterdir()) == siblings
 
 
+def test_loudness_scope_is_visible_in_saved_results_and_reports(
+    saved: tuple[Projects, str, Path],
+) -> None:
+    from mediaqc_engine.media.loudness_scope import notes
+
+    service, run, _ = saved
+    assert service.project is not None
+    project = service.project
+    db = project.connection
+    asset = runs.fetch(db, run)["media_asset_id"]
+    with db:
+        db.execute(
+            "INSERT INTO media_streams "
+            "(id,media_asset_id,stream_index,stream_type,channel_count) "
+            "VALUES (?,?,0,'audio',7)",
+            ("scope", asset),
+        )
+    original = findings.overall(db, run)
+    assert "no declared channel assignment" in notes(db, run)[0]
+    assert runs.summary(db, run)["interpretation_notes"] == notes(db, run)
+    text = "\n".join(value for _, value in reports.sections(project, run))
+    assert "provisional" in text and "decoder-guessed" in text
+    for kind in ("HTML", "PDF"):
+        path = export(service, run, kind)
+        content = (
+            path.read_text(encoding="utf-8")
+            if kind == "HTML"
+            else " ".join(page.extract_text() for page in PdfReader(path).pages)
+        )
+        assert "Loudness interpretation" in content
+        assert "provisional" in content
+    with db:
+        db.execute("UPDATE media_streams SET channel_layout='6.1' WHERE id='scope'")
+    assert notes(db, run) == []
+    with db:
+        db.execute(
+            "INSERT INTO media_streams "
+            "(id,media_asset_id,stream_index,stream_type,channel_count) "
+            "VALUES (?,?,1,'audio',1)",
+            ("scope2", asset),
+        )
+    assert "separately for each audio stream" in notes(db, run)[0]
+    assert findings.overall(db, run) == original
+
+
 def export(service: Projects, run: str, kind: str) -> Path:
     response, _ = handle_line(
         json.dumps(

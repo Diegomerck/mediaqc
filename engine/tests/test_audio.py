@@ -124,6 +124,131 @@ def test_pure_math() -> None:
     assert correlation(np.zeros((100, 2)), 0, 1) is None
 
 
+def test_shared_pcm_preserves_detector_results_and_decodes_once(tmp_path: Path) -> None:
+    from mediaqc_engine.detectors.audio import pcm
+
+    samples = np.c_[tone(2.013), tone(2.013)]
+    samples[1000:1300, 0] = 1
+    samples[30000:30240, 1] = 0
+    ctx = context(tmp_path, samples)
+    names = [
+        "sample_peak",
+        "clipping",
+        "silence",
+        "channel_imbalance",
+        "phase_correlation",
+        "hum",
+        "noise_floor",
+        "dropout",
+        "discontinuity",
+    ]
+
+    def result(name: str) -> str:
+        value = analyze(ctx, name)
+        for finding in value.findings:
+            finding.pop("id")
+        return json.dumps(
+            [value.metrics, value.findings, value.warnings], sort_keys=True
+        )
+
+    with patch.object(pcm, "MAX_CACHE_BYTES", 0):
+        expected = [result(name) for name in names]
+    with patch.object(
+        ctx.media_tools, "stream", wraps=ctx.media_tools.stream
+    ) as decode:
+        assert [result(name) for name in names] == expected
+        assert decode.call_count == 1
+    assert (
+        sum(p.stat().st_size for p in Path(ctx.work_dir).glob("pcm-*.f64"))
+        <= pcm.MAX_CACHE_BYTES
+    )
+    pcm.cleanup(Path(ctx.work_dir))
+    assert not list(Path(ctx.work_dir).glob("pcm-*.f64*"))
+
+
+@pytest.mark.parametrize("rate,channels", [(44100, 1), (48000, 7)])
+def test_vectorized_power_preserves_window_boundaries(
+    tmp_path: Path, rate: int, channels: int
+) -> None:
+    from mediaqc_engine.detectors.audio.dsp import power_windows
+
+    ctx = context(tmp_path, np.zeros((100, channels)))
+    stream = {**ctx.streams[0], "sample_rate_hz": rate}
+    data = (
+        np.random.default_rng(7)
+        .normal(size=(rate + 17, channels))
+        .astype("<f8")
+        .tobytes()
+    )
+
+    def decode(arguments: list[str], block_bytes: int) -> Iterator[bytes]:
+        for start in range(0, len(data), block_bytes):
+            yield data[start : start + block_bytes]
+
+    with patch.object(ctx.media_tools, "stream", side_effect=decode):
+        expected = [
+            (start, start + len(samples) / rate, np.mean(samples * samples, axis=0))
+            for start, samples, _ in windows(ctx, stream, 0.001)
+        ]
+        actual = list(power_windows(ctx, stream, 0.001))
+    assert len(expected) == len(actual)
+    for (a, b, c), (x, y, z) in zip(expected, actual, strict=True):
+        assert (a, b) == (x, y)
+        np.testing.assert_array_equal(c, z)
+
+
+def test_pcm_storage_failure_and_cached_cancellation(tmp_path: Path) -> None:
+    ctx = context(tmp_path, tone(1))
+    with patch.object(Path, "open", side_effect=PermissionError("cache unavailable")):
+        assert len(list(windows(ctx, ctx.streams[0], 0.01))) == 100
+    assert not list(Path(ctx.work_dir).glob("pcm-*.f64*"))
+    list(windows(ctx, ctx.streams[0], 0.01))
+
+    def cancel(seconds: float) -> None:
+        ctx.cancellation.cancel()
+
+    with (
+        patch.object(
+            ctx.media_tools, "stream", side_effect=AssertionError("use cache")
+        ),
+        pytest.raises(Cancelled),
+    ):
+        list(windows(replace(ctx, report_progress=cancel), ctx.streams[0], 0.01))
+    assert not ctx.media_tools.pids
+
+
+def test_pcm_budget_early_close_failure_and_recovery(tmp_path: Path) -> None:
+    from mediaqc_engine.detectors.audio import pcm
+
+    ctx = context(tmp_path, tone(1))
+    stream = {**ctx.streams[0], "duration_seconds": 0}
+    ctx = replace(ctx, media_asset={**ctx.media_asset, "duration_seconds": 0})
+    with patch.object(pcm, "MAX_CACHE_BYTES", 1024):
+        assert len(list(windows(ctx, stream, 0.01))) == 100
+    assert not list(Path(ctx.work_dir).glob("pcm-*.f64*"))
+    iterator = windows(ctx, stream, 0.01)
+    next(iterator)
+    iterator.close()
+    assert not ctx.media_tools.pids
+    assert not list(Path(ctx.work_dir).glob("pcm-*.f64*"))
+
+    def failed(arguments: list[str], block_bytes: int) -> Iterator[bytes]:
+        yield b"\0" * 800
+        raise AppError("MEDIA_UNSUPPORTED", "decode failure")
+
+    with (
+        patch.object(ctx.media_tools, "stream", side_effect=failed),
+        pytest.raises(AppError),
+    ):
+        list(windows(ctx, stream, 0.01))
+    assert not list(Path(ctx.work_dir).glob("pcm-*.f64*"))
+    Path(ctx.work_dir, "pcm-0.f64.partial").write_bytes(b"abandoned")
+    Path(ctx.work_dir, "keep.json").write_text("saved metrics")
+    pcm.recover(Path(ctx.work_dir).parent)
+    assert not list(Path(ctx.work_dir).glob("pcm-*.f64*"))
+    assert Path(ctx.work_dir, "keep.json").exists()
+
+
 @pytest.mark.parametrize(
     "name", [d.detector_id.removeprefix("audio.") for d in registry()]
 )

@@ -64,6 +64,14 @@ const run: Run = {
   findings: [finding],
   total: 1,
 };
+test('shows loudness interpretation outside collapsed technical details', () => {
+  const note =
+    'Channel assignment unknown; program loudness compliance is not established.';
+  render(<AudioResults run={{ ...run, interpretation_notes: [note] }} />);
+  expect(screen.getByRole('note').textContent).toContain(note);
+  expect(screen.getByText(note).closest('details')).toBeNull();
+  expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();
+});
 test('shows saved audio result, raw measurements, thresholds and evidence', () => {
   render(<AudioResults run={run} />);
   expect(screen.getByText('Audio QC: FAIL')).toBeTruthy();

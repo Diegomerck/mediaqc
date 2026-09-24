@@ -10,6 +10,7 @@ export interface Progress {
   message: string;
 }
 export interface Run {
+  interpretation_notes?: string[];
   ai_mode?: 'OFF' | 'LOCAL';
   media?: {
     file_name: string;

@@ -526,6 +526,10 @@ class JobManager:
                 )
         finally:
             tools.cancel()
+            from mediaqc_engine.detectors.audio.pcm import cleanup
+
+            if tools.cache is not None:
+                cleanup(tools.cache)
             if project is not None:
                 project.close()
 

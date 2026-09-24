@@ -87,6 +87,10 @@ def sections(project: Project, identifier: str) -> Sections:
             raise AppError("REPORT_FAILED", "Report exceeds the 5000 finding limit")
         profile = json.loads(str(run["qc_profile_snapshot_json"]))
         add("Overall result", findings.overall(db, identifier))
+        from mediaqc_engine.media.loudness_scope import notes
+
+        for note in notes(db, identifier):
+            add("Loudness interpretation", note)
         add("Contributing findings", findings.counts(db, identifier))
         add(
             "Disposition policy",
