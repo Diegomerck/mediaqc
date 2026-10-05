@@ -1,14 +1,16 @@
 # MediaQC V1 — Master Specification
 
 **Status:** Authoritative  
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 **Target:** Windows 10/11, offline-first  
 **Working product name:** MediaQC
 
-**Active phase:** Phase 10 — batch processing and streamlined operator UX.
+**Active phase:** Phase 12 — detector acceptance corpus and calibration framework.
 
-**Amendment status:** Approved specification; implementation requires separate user authorization.
+**Amendment status:** Phase 12 corpus/framework implementation authorized; preserve
+General Technical QC 1.2.0 and historical verdict behavior. Calibration changes
+require positive and negative acceptance evidence, never reference-specific suppression.
 
 ---
 
@@ -482,6 +484,34 @@ are introduced. Queue entries SHALL NOT pre-create queued analysis runs.
 
 ---
 
+### Phase 11 — Performance preservation baseline
+
+The completed performance work is recorded in `docs/PHASE_10_PERFORMANCE_FIX.md`.
+Preserve shared bounded PCM reuse, vectorized dropout windows, bounded decoder
+threading, R128 reuse, source immutability, cancellation and terminal cleanup.
+
+### Phase 12 — Detector calibration and reference corpus
+
+Build the acceptance framework before changing detector algorithms. Separate
+measurement correctness, selected-profile compliance and technical-defect intent.
+Keep General Technical QC 1.2.0 unchanged; introduce no new technical-only profile.
+Use reproducible small synthetic positive/negative fixtures and local-only reviewed
+references. Normal zoom, auto-exposure, cuts, focus adaptation and natural motion
+are negative technical-defect cases. Retain deliberate corruption/freeze/repeat
+positives. Unknown transient intent remains unresolved, never presumed clean.
+Explicit runtime audio assignments are now authorized for new runs under the
+versioned explicit_audio_v1 applicability policy. Unassigned runs preserve legacy
+behavior; historical results are never rewritten. See the Phase 12 runtime
+addenda in database, detector, profile and IPC specifications. No new
+detectors (including dedicated dead/stuck-pixel detection) are implied by corpus
+examples. Record unimplemented coverage explicitly.
+
+Use focused validation during development. Full gates, builds and packaging are
+reserved until implementation is stable. Do not commit, push, merge or open a PR
+without further user instruction. See `specs/09_TESTING_SPEC.md` section 20.
+
+---
+
 ## 12. Global acceptance criteria
 
 V1 is complete only when ALL of the following are true:
@@ -568,3 +598,12 @@ Do not proceed to Phase 1 until Phase 0 is complete.
 For Phase 10, read the approved amended specifications and implement only after
 explicit implementation approval. Specification approval alone does not authorize
 application changes, dependency installation, full quality gates, or packaging.
+
+### Approved Phase 12 V1 acceptance disposition
+
+The approved two-result acceptance model in specs/09_TESTING_SPEC.md section 21
+separates unchanged ground-truth mismatches from narrowly accepted release
+limitations. The twelve enumerated exceptions and unresolved reference status do
+not change production signal processing, General Technical QC 1.2.0, historical
+results or required recall outside those explicit entries. Final validation remains
+separately authorized; approval of limitations is not Phase 12 completion.

@@ -108,7 +108,12 @@ def test_capabilities_are_truthful_and_versioned() -> None:
     assert response["result"] == {
         "engine_version": "0.0.0",
         "protocol_version": "1.0",
-        "schema_version": 3,
+        "schema_version": 4,
+        "audio_applicability": {
+            "assignment_schema": "0.1.0",
+            "policy_version": "explicit_audio_v1",
+            "batch_assignments": False,
+        },
         "batch": {
             "available": True,
             "contract_version": "1.0",
@@ -129,7 +134,10 @@ def test_capabilities_are_truthful_and_versioned() -> None:
         "detectors": [
             {
                 "id": identifier,
-                "version": "1.0.0",
+                "version": "1.1.0"
+                if identifier == "audio.silence"
+                or identifier.startswith("audio.loudness.")
+                else "1.0.0",
                 "media_types": [identifier.split(".")[0]],
                 "requires_ai": False,
             }

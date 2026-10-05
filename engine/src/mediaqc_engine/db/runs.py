@@ -2,11 +2,14 @@
 
 import json
 import sqlite3
+from typing import Any
 from uuid import uuid4
 
 from mediaqc_engine import __version__
 from mediaqc_engine.app.errors import AppError
+from mediaqc_engine.db import audio_assignments
 from mediaqc_engine.db.project import now
+from mediaqc_engine.qc.audio_applicability import Snapshot
 
 TERMINAL = {"COMPLETED", "CANCELLED", "FAILED"}
 ACTIVE = {
@@ -43,6 +46,7 @@ def create(
     fingerprint: object,
     ai_mode: str = "OFF",
     batch_item_id: str | None = None,
+    assignment: tuple[Snapshot, dict[str, Any]] | None = None,
 ) -> str:
     identifier = str(uuid4())
     with db:
@@ -72,6 +76,8 @@ def create(
                 now(),
             ),
         )
+        if assignment is not None:
+            audio_assignments.save(db, identifier, *assignment)
         if batch_item_id is not None:
             item = db.execute(
                 "SELECT i.batch_id FROM batch_items i JOIN batches b ON "
@@ -175,6 +181,10 @@ def summary(db: sqlite3.Connection, identifier: str) -> dict[str, object]:
         )
     return {
         **run,
+        "audio_assignment": audio_assignments.document(db, identifier),
+        "audio_applicability_policy": "explicit_audio_v1"
+        if audio_assignments.document(db, identifier)
+        else None,
         "media": dict(
             db.execute(
                 "SELECT file_name,duration_seconds,absolute_path "

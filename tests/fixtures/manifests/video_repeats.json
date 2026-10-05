@@ -1,0 +1,315 @@
+[
+  {
+    "fixture_id": "video.zoom_settle.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Independent continuous zoom render with one very small but nonzero step; original known-good investigation ground truth is unchanged."
+  },
+  {
+    "fixture_id": "video.zoom_settle_lossy.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Same intentional zoom encoded as H.264 CRF 18 YUV420p; compression cannot change ground truth."
+  },
+  {
+    "fixture_id": "video.low_motion.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Independent subpixel translation on every frame; no injected hold."
+  },
+  {
+    "fixture_id": "video.static.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Legitimate static shot throughout; no surrounding motion."
+  },
+  {
+    "fixture_id": "video.static_between_cuts.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Legitimate two-frame static insert with hard cuts on both sides; cuts are not motion evidence."
+  },
+  {
+    "fixture_id": "video.single_duplicate.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.08,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "INFO",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.08,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      }
+    ],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "technical_defect",
+    "rationale": "Replace frame 26 with frame 25 on a moving CFR timeline."
+  },
+  {
+    "fixture_id": "video.single_duplicate_lossy.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.08,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "INFO",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.08,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      }
+    ],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "technical_defect",
+    "rationale": "Same isolated copied frame, encoded as H.264 CRF 18 YUV420p."
+  },
+  {
+    "fixture_id": "video.duplicate_lossy.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.12,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "INFO",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 3
+        }
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.12,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 3
+        }
+      }
+    ],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "technical_defect",
+    "rationale": "Replace frames 26 and 27 with frame 25 before H.264 CRF 18 YUV420p encoding."
+  },
+  {
+    "fixture_id": "video.broken_cadence.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 0.76,
+        "end_time_seconds": 0.84,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "INFO",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 0.76,
+        "end_time_seconds": 0.84,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 1.56,
+        "end_time_seconds": 1.64,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "INFO",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 1.56,
+        "end_time_seconds": 1.64,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 2.36,
+        "end_time_seconds": 2.44,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "INFO",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 2.36,
+        "end_time_seconds": 2.44,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 3.16,
+        "end_time_seconds": 3.24,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "INFO",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 3.16,
+        "end_time_seconds": 3.24,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 2
+        }
+      }
+    ],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "technical_defect",
+    "rationale": "Replace frames 20, 40, 60 and 80 with their predecessors, breaking moving-content cadence while retaining 25 fps PTS."
+  },
+  {
+    "fixture_id": "video.repeat_six.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [
+      {
+        "detector_id": "video.duplicate_frame",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.24,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "INFO",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 6
+        }
+      },
+      {
+        "detector_id": "video.frame_cadence",
+        "start_time_seconds": 1,
+        "end_time_seconds": 1.24,
+        "timestamp_tolerance_seconds": 1e-6,
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "frame_count": 6
+        }
+      }
+    ],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "technical_defect",
+    "rationale": "Six held frames span 0.24 s, inside the unchanged 0.25 s maximum."
+  },
+  {
+    "fixture_id": "video.repeat_seven.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "profile_compliance",
+    "rationale": "Seven held frames span 0.28 s, outside these two brief-repeat policies. Empty scope is policy abstention, not clean media."
+  },
+  {
+    "fixture_id": "video.repeat_tail.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "profile_compliance",
+    "rationale": "Copied frames at EOF have no following motion evidence; expected abstention is not clean media."
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "policy_version": "explicit_audio_v1",
+  "silence_expected_unused_severity": "INFO",
+  "silence_unresolved_severity": "INFO",
+  "unassigned_program_scope_severity": "INFO"
+}

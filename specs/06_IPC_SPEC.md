@@ -583,3 +583,16 @@ Messages include actionable structured context without source-media content.
 Batch export accepts only PAUSED, COMPLETED, STOPPED, INTERRUPTED, or FAILED when
 no other operation owns the scheduler. Reject conflicting report/start/resume
 requests with BATCH_BUSY; report generation must not block active cancellation.
+
+
+## Phase 12 explicit runtime audio applicability
+
+analysis.start accepts optional audio_assignment (the explicit 0.1.0 source-bound contract object); all existing parameters remain required. The worker verifies full SHA-256 with cancellation before measurement. Invalid topology is INVALID_REQUEST; stale source fails MEDIA_CHANGED. analysis.get returns the saved assignment and applicability policy; retry preserves and revalidates that snapshot. Omission is legacy behavior, not an inferred channel expectation. Batch assignment editing and automatic assignment propagation are not added. Desktop assignment editing remains outside this minimal engine integration; callers may supply the documented stdio field.
+
+Capabilities advertise schema_version 4 and audio_applicability with assignment_schema 0.1.0, policy_version explicit_audio_v1 and batch_assignments false. Optional parameters are backward-compatible with protocol 1.0.
+
+Detailed HTML/PDF exports for assigned runs SHALL include the saved source SHA-256,
+assignment identity, provenance, policy version, normalized channel expectations,
+and ordered program members, including when no findings exist. Read only the saved
+snapshot; omitted channels remain unknown. Export does not revalidate current media
+or change historical runs/reports. Legacy unassigned runs have no fabricated intent.

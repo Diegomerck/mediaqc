@@ -1,6 +1,6 @@
 {
   "package": "MediaQC V1 Specification",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "files": [
     {
       "path": "AGENTS.md",
@@ -8,7 +8,7 @@
     },
     {
       "path": "MASTER_SPEC.md",
-      "bytes": 14960
+      "bytes": 17249
     },
     {
       "path": "README.md",
@@ -24,19 +24,19 @@
     },
     {
       "path": "specs/03_DATABASE.md",
-      "bytes": 15346
+      "bytes": 15941
     },
     {
       "path": "specs/04_DETECTOR_SPEC.md",
-      "bytes": 10075
+      "bytes": 12572
     },
     {
       "path": "specs/05_QC_PROFILE_SPEC.md",
-      "bytes": 6916
+      "bytes": 8441
     },
     {
       "path": "specs/06_IPC_SPEC.md",
-      "bytes": 17641
+      "bytes": 18996
     },
     {
       "path": "specs/07_UI_SPEC.md",
@@ -48,7 +48,7 @@
     },
     {
       "path": "specs/09_TESTING_SPEC.md",
-      "bytes": 13605
+      "bytes": 19318
     },
     {
       "path": "specs/10_WINDOWS_BUILD.md",

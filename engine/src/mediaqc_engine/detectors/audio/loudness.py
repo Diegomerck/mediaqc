@@ -5,10 +5,12 @@ import math
 from collections.abc import Iterator
 from contextlib import closing
 from pathlib import Path
+from typing import cast
 
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.detectors.audio.common import AudioDetector, number
 from mediaqc_engine.detectors.audio.dsp import Regions, db
+from mediaqc_engine.detectors.audio.programs import programs, qualify
 from mediaqc_engine.detectors.contract import DetectorContext, DetectorResult
 
 
@@ -51,6 +53,24 @@ def frames(
         "null",
         "-",
     ]
+    if "_program_graph" in stream:
+        arguments[0:0] = ["-threads", "1", "-filter_complex_threads", "1"]
+        filter_start = arguments.index("-map")
+        arguments[filter_start:] = [
+            "-vn",
+            "-sn",
+            "-dn",
+            "-filter_complex",
+            str(stream["_program_graph"])
+            + ",asetpts=PTS-STARTPTS,"
+            + framing
+            + "ebur128=metadata=1:peak=true,ametadata=mode=print:file=-[program]",
+            "-map",
+            "[program]",
+            "-f",
+            "null",
+            "-",
+        ]
     current: dict[str, float] = {}
     pending = b""
     try:
@@ -86,6 +106,67 @@ def frames(
 
 
 class LoudnessDetector(AudioDetector):
+    def __init__(self, detector_id: str):
+        super().__init__(detector_id)
+        if detector_id.startswith("audio.loudness."):
+            self.detector_version = "1.1.0"
+
+    def analyze(self, context: DetectorContext) -> DetectorResult:
+        assignment = context.audio_assignment
+        if assignment is None or self.detector_id == "audio.true_peak":
+            return super().analyze(context)
+        selected = programs(context)
+        result = super().analyze(context)
+        scopes = {
+            str(s["id"]): {
+                "kind": "stream",
+                "members": [
+                    [int(str(s["stream_index"])), c]
+                    for c in range(int(str(s["channel_count"])))
+                ],
+            }
+            for s in context.streams
+            if s["stream_type"] == "audio"
+        }
+        for stream_id, measured in cast(
+            dict[str, dict[str, object]], result.metrics["streams"]
+        ).items():
+            measured["measurement_scope"] = scopes[stream_id]
+        for finding in result.findings:
+            cast(dict[str, object], finding["measurements"])["measurement_scope"] = (
+                scopes[str(finding["stream_id"])]
+            )
+            qualify(finding, assignment.identity, "UNASSIGNED_PROGRAM_SCOPE")
+        program_metrics: dict[str, object] = {}
+        result.metrics["programs"] = program_metrics
+        result.metrics["applicability_policy"] = "explicit_audio_v1"
+        if not selected:
+            result.warnings.append({"code": "NO_DESIGNATED_AUDIO_PROGRAM"})
+        for stream in selected:
+            context.cancellation.check()
+            part = self.measure(context, stream)
+            part.metrics["measurement_scope"] = stream["measurement_scope"]
+            program_metrics[str(stream["id"])] = part.metrics
+            for finding in part.findings:
+                finding["stream_id"] = None
+                cast(dict[str, object], finding["measurements"])[
+                    "measurement_scope"
+                ] = stream["measurement_scope"]
+                qualify(finding, assignment.identity, "APPLICABLE")
+                finding["title"] = (
+                    str(finding["title"])
+                    + " (program "
+                    + str(
+                        cast(dict[str, object], stream["measurement_scope"])[
+                            "program_id"
+                        ]
+                    )
+                    + ")"
+                )
+            result.findings.extend(part.findings)
+            result.warnings.extend(part.warnings)
+        return result
+
     def measure(
         self, context: DetectorContext, stream: dict[str, object]
     ) -> DetectorResult:

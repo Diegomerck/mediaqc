@@ -1,0 +1,347 @@
+[
+  {
+    "fixture_id": "audio.discontinuity.impulse_before.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 1.9999791666666666,
+        "end_time_seconds": 2.000020833333333,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Injected sample immediately before a 20 ms boundary; both edges must be merged."
+  },
+  {
+    "fixture_id": "audio.discontinuity.impulse_after.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2.000020833333333,
+        "end_time_seconds": 2.0000625,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Injected sample immediately after a 20 ms boundary."
+  },
+  {
+    "fixture_id": "audio.discontinuity.dc_step.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.000020833333333,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Injected 0.6 DC step, with sustained offset after the discontinuity."
+  },
+  {
+    "fixture_id": "audio.discontinuity.phase_splice.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2.001,
+        "end_time_seconds": 2.001020833333333,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Hard polarity splice at a 250 Hz tone maximum; a genuine edit discontinuity."
+  },
+  {
+    "fixture_id": "audio.discontinuity.simultaneous.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0000416666666667,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Same injected click on both channels; coherence must not exempt a shared digital fault."
+  },
+  {
+    "fixture_id": "audio.discontinuity.delayed.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0010416666666666,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Clicks one millisecond apart, within the unchanged 20 ms event merge gap."
+  },
+  {
+    "fixture_id": "audio.discontinuity.masked.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0000416666666667,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Left-channel injected click alongside continuous right-channel high-frequency audio; unrelated channel activity must not hide it."
+  },
+  {
+    "fixture_id": "audio.discontinuity.sharp.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "known_good",
+    "rationale": "Analytic continuous 100 microsecond attack, 8 kHz tone burst; no injected sample, splice, or missing data. Multi-channel variants have zero or 1 ms propagation delay; sustained variant has 80 ms decay."
+  },
+  {
+    "fixture_id": "audio.discontinuity.sharp_stereo.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "known_good",
+    "rationale": "Analytic continuous 100 microsecond attack, 8 kHz tone burst; no injected sample, splice, or missing data. Multi-channel variants have zero or 1 ms propagation delay; sustained variant has 80 ms decay."
+  },
+  {
+    "fixture_id": "audio.discontinuity.sharp_delayed.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "known_good",
+    "rationale": "Analytic continuous 100 microsecond attack, 8 kHz tone burst; no injected sample, splice, or missing data. Multi-channel variants have zero or 1 ms propagation delay; sustained variant has 80 ms decay."
+  },
+  {
+    "fixture_id": "audio.discontinuity.sustained.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "known_good",
+    "rationale": "Analytic continuous 100 microsecond attack, 8 kHz tone burst; no injected sample, splice, or missing data. Multi-channel variants have zero or 1 ms propagation delay; sustained variant has 80 ms decay."
+  },
+  {
+    "fixture_id": "audio.discontinuity.continuous_hf.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "known_good",
+    "rationale": "Continuous high-frequency tone: large inter-sample changes alone are not faults."
+  },
+  {
+    "fixture_id": "audio.discontinuity.sustained_shifted.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "known_good",
+    "rationale": "Same continuous sustained attack/decay as sustained, moved 15 ms across the fixed 20 ms baseline partition. No splice or sample replacement."
+  },
+  {
+    "fixture_id": "audio.discontinuity.mxf_click.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 1,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0000416666666667,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      },
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 2,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0000416666666667,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Two independent mono production streams with simultaneous injected clicks and six intentionally empty ISO streams. No video detector selected."
+  },
+  {
+    "fixture_id": "audio.discontinuity.mxf_sharp.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "known_good",
+    "rationale": "Two independent mono production streams with legitimate sharp analytic transients and six intentionally empty ISO streams. No video detector selected."
+  },
+  {
+    "fixture_id": "audio.discontinuity.masked_swapped.001",
+    "generator_version": "1.3.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0000416666666667,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Channel-order permutation of the masked injected click: required recall must not depend on left/right order."
+  },
+  {
+    "fixture_id": "audio.discontinuity.sharp_busy.001",
+    "generator_version": "1.3.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "legitimate_content",
+    "rationale": "Continuous analytic sharp sound with a busy unrelated channel: per-channel baseline must not be promoted merely because it recovers the masked click."
+  },
+  {
+    "fixture_id": "audio.discontinuity.clean_busy.001",
+    "generator_version": "1.3.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [],
+    "category": "legitimate_content",
+    "rationale": "Low-frequency tone plus continuous high-frequency channel, with no injected edit or click."
+  },
+  {
+    "fixture_id": "audio.discontinuity.click_cluster.001",
+    "generator_version": "1.4.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0010416666666666,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Two injected clicks separated by 1 ms must remain detected; candidate-count suppression can hide both."
+  },
+  {
+    "fixture_id": "audio.discontinuity.wide_click.001",
+    "generator_version": "1.4.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0000833333333334,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Injected three-sample triangular click: genuine digital fault with four derivative edges; not restricted to a single-sample impulse."
+  },
+  {
+    "fixture_id": "audio.discontinuity.dc_step_moderate.001",
+    "generator_version": "1.5.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.000020833333333,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Injected 0.4 DC step exceeds existing jump/ratio limits; interpolation veto must not halve sensitivity to persistent steps."
+  },
+  {
+    "fixture_id": "audio.discontinuity.plateau_click.001",
+    "generator_version": "1.5.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.discontinuity",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 2,
+        "end_time_seconds": 2.0000625,
+        "timestamp_tolerance_seconds": 2.0833333333333333e-5
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Injected two-sample 0.4 plateau click: both real edges must remain detectable despite smaller interpolation residual."
+  }
+]

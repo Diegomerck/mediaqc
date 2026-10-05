@@ -11,10 +11,10 @@ from uuid import uuid4
 
 from mediaqc_engine import evidence
 from mediaqc_engine.app.errors import AppError
-from mediaqc_engine.db import findings, runs
+from mediaqc_engine.db import audio_assignments, findings, runs
 from mediaqc_engine.db.project import Project, now
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 # Export resource limits, not QC policy. Exceeding them fails without truncation.
 MAX_FINDINGS = 5000
 MAX_TEXT_BYTES = 4 * 1024 * 1024
@@ -91,6 +91,9 @@ def sections(project: Project, identifier: str) -> Sections:
 
         for note in notes(db, identifier):
             add("Loudness interpretation", note)
+        assignment = audio_assignments.report_snapshot(db, identifier)
+        if assignment is not None:
+            add("Saved audio applicability", assignment)
         add("Contributing findings", findings.counts(db, identifier))
         add(
             "Disposition policy",

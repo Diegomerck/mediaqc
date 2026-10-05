@@ -1,0 +1,13 @@
+[
+  {
+    "fixture_id": "video.zoom_settle.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["video.duplicate_frame", "video.frame_cadence"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Continuous zoom briefly slows. Frames are independently rendered, not copied; must not become an unintended repeat finding."
+  }
+]

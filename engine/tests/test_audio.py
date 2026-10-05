@@ -14,7 +14,6 @@ from uuid import uuid4
 
 import numpy as np
 import pytest
-from generate_test_media.audio import generate
 
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.app.projects import Projects
@@ -112,7 +111,12 @@ def interval(
     assert float(str(finding["duration_seconds"])) == pytest.approx(
         end - start, abs=2 * tolerance
     )
-    assert finding["detector_version"] == "1.0.0"
+    assert finding["detector_version"] == (
+        "1.1.0"
+        if finding["detector_id"] == "audio.silence"
+        or str(finding["detector_id"]).startswith("audio.loudness.")
+        else "1.0.0"
+    )
     assert finding["disposition"] == "OPEN"
 
 
@@ -124,13 +128,38 @@ def test_pure_math() -> None:
     assert correlation(np.zeros((100, 2)), 0, 1) is None
 
 
-def test_shared_pcm_preserves_detector_results_and_decodes_once(tmp_path: Path) -> None:
+@pytest.mark.parametrize("assigned", [False, True])
+def test_shared_pcm_preserves_detector_results_and_decodes_once(
+    tmp_path: Path, assigned: bool
+) -> None:
     from mediaqc_engine.detectors.audio import pcm
 
     samples = np.c_[tone(2.013), tone(2.013)]
     samples[1000:1300, 0] = 1
     samples[30000:30240, 1] = 0
     ctx = context(tmp_path, samples)
+    if assigned:
+        from mediaqc_engine.qc.audio_applicability import parse_contract
+
+        source = Path(str(ctx.media_asset["absolute_path"]))
+        sha = hashlib.sha256(source.read_bytes()).hexdigest()
+        ctx = replace(
+            ctx,
+            audio_assignment=parse_contract(
+                {
+                    "schema_version": "0.1.0",
+                    "source_sha256": sha,
+                    "provenance": "cache-test",
+                    "channels": [
+                        {"member": [0, i], "role": "iso", "expectation": "expected"}
+                        for i in range(2)
+                    ],
+                    "programs": [],
+                },
+                {0: 2},
+                sha,
+            ),
+        )
     names = [
         "sample_peak",
         "clipping",
@@ -624,32 +653,10 @@ def test_production_persistence_ipc_reopen_and_immutability(tmp_path: Path) -> N
 
 @pytest.mark.parametrize("fixture", json.loads(MANIFEST.read_text()))
 def test_golden_manifest(tmp_path: Path, fixture: dict[str, object]) -> None:
-    source = generate(str(fixture["fixture_id"]), tmp_path / "source")
-    with wave.open(str(source), "rb") as audio:
-        samples = (
-            np.frombuffer(audio.readframes(audio.getnframes()), dtype="<i2")
-            .astype(np.float64)
-            .reshape(-1, audio.getnchannels())
-            / 32768
-        )
-    ctx = context(tmp_path, samples)
-    for expectation in cast(list[dict[str, object]], fixture["expected_findings"]):
-        result = analyze(ctx, str(expectation["detector_id"]).removeprefix("audio."))
-        assert result.findings
-        assert result.findings[0]["severity"] == expectation["severity_min"]
-        if "start_time_seconds" in expectation:
-            interval(
-                result,
-                float(str(expectation["start_time_seconds"])),
-                float(str(expectation["end_time_seconds"])),
-                float(str(expectation["timestamp_tolerance_seconds"])),
-            )
-    for forbidden in cast(
-        list[dict[str, object]], fixture.get("forbidden_findings", [])
-    ):
-        assert not analyze(
-            ctx, str(forbidden["detector_id"]).removeprefix("audio.")
-        ).findings
+    from detector_acceptance import run_case
+
+    result = run_case(fixture, tmp_path)
+    assert result["status"] == "PASS", result["errors"]
 
 
 def test_multiple_stream_ids_offsets_and_profile_severity(tmp_path: Path) -> None:

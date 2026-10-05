@@ -3,7 +3,7 @@
 **Version:** 1.1.0
 
 **Database:** SQLite  
-**Schema version:** 3 (Phase 10 target; runtime migration not implemented by this amendment)
+**Schema version:** 4 (Phase 12 explicit audio assignments; migration_004.sql)
 
 ## 1. Principles
 
@@ -453,3 +453,11 @@ CREATE INDEX idx_batch_reports_batch ON batch_reports(batch_id, generated_at, id
 - Artifact registration occurs only after successful report creation; errors leave
   no successful report row or partial published artifact. Previously exported files
   are retained. A stored revision identifies the snapshot, not a live report.
+
+
+## Phase 12 explicit runtime audio applicability
+
+Schema 4 adds immutable per-run audio assignment headers, channel rows, program rows and ordered member rows. Store source SHA-256, snapshot identity, provenance, policy version and original contract JSON as an audit copy. Core assignment fields remain relational. Migrate schema 3 with the existing committed-WAL backup transaction strategy. No old run receives an assignment or changed verdict.
+
+The canonical schema-4 addition is `engine/src/mediaqc_engine/db/migration_004.sql`.
+The existing schema-1/2/3 definitions above remain the migration history.

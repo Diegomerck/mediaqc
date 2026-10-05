@@ -12,6 +12,7 @@ from mediaqc_engine.app.errors import AppError
 SCHEMA = Path(__file__).with_name("migration_001.sql")
 AI_SCHEMA = Path(__file__).with_name("migration_002.sql")
 BATCH_SCHEMA = Path(__file__).with_name("migration_003.sql")
+AUDIO_SCHEMA = Path(__file__).with_name("migration_004.sql")
 FOLDERS = (
     "evidence/audio",
     "evidence/video",
@@ -87,7 +88,7 @@ class Project:
                 version = reader.execute(
                     "SELECT value FROM schema_meta WHERE key='schema_version'"
                 ).fetchone()
-                if version not in (("1",), ("2",), ("3",)) or reader.execute(
+                if version not in (("1",), ("2",), ("3",), ("4",)) or reader.execute(
                     "SELECT count(*) FROM projects"
                 ).fetchone() != (1,):
                     raise AppError(
@@ -96,10 +97,14 @@ class Project:
                     )
                 with closing(sqlite3.connect(":memory:")) as expected:
                     expected.executescript(SCHEMA.read_text(encoding="utf-8"))
-                    if version in (("2",), ("3",)):
+                    if version in (("2",), ("3",), ("4",)):
                         expected.executescript(AI_SCHEMA.read_text(encoding="utf-8"))
-                    if version == ("3",):
+                    if version in (("3",), ("4",)):
                         expected.executescript(BATCH_SCHEMA.read_text(encoding="utf-8"))
+                    if version == ("4",):
+                        expected.executescript(
+                            AUDIO_SCHEMA.read_text(encoding="utf-8-sig")
+                        )
                     tables = expected.execute(
                         "SELECT name FROM sqlite_master WHERE type='table'"
                     ).fetchall()
@@ -118,7 +123,11 @@ class Project:
                 if reader.execute("PRAGMA quick_check").fetchone() != ("ok",):
                     raise AppError("PROJECT_INVALID", "Project database is corrupt")
             connection = sqlite3.connect(path.as_uri() + "?mode=rw", uri=True)
-            for previous, migration in ((1, AI_SCHEMA), (2, BATCH_SCHEMA)):
+            for previous, migration in (
+                (1, AI_SCHEMA),
+                (2, BATCH_SCHEMA),
+                (3, AUDIO_SCHEMA),
+            ):
                 if int(version[0]) > previous:
                     continue
                 # SQLite backup includes committed WAL content; keep it for recovery.
@@ -129,7 +138,7 @@ class Project:
                             connection.backup(destination)
                     connection.executescript(
                         "BEGIN IMMEDIATE;\n"
-                        + migration.read_text(encoding="utf-8")
+                        + migration.read_text(encoding="utf-8-sig")
                         + f"\nUPDATE schema_meta SET value='{previous + 1}' "
                         "WHERE key='schema_version';"
                     )

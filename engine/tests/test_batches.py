@@ -88,7 +88,15 @@ def test_migration_003_wal_backup_and_rollback(tmp_path: Path) -> None:
     project = Project.create(tmp_path / "project", "Batch project")
     path = project.path
     with project.connection:
-        for table in ("batch_reports", "batch_items", "batches"):
+        for table in (
+            "audio_assignment_members",
+            "audio_assignment_programs",
+            "audio_assignment_channels",
+            "audio_assignments",
+            "batch_reports",
+            "batch_items",
+            "batches",
+        ):
             project.connection.execute(f"DROP TABLE {table}")
         project.connection.execute("UPDATE schema_meta SET value='2'")
         project.connection.execute("UPDATE projects SET notes='Committed history'")
@@ -112,7 +120,7 @@ def test_migration_003_wal_backup_and_rollback(tmp_path: Path) -> None:
         )
     project = Project.open(path)
     assert (
-        project.connection.execute("SELECT value FROM schema_meta").fetchone()[0] == "3"
+        project.connection.execute("SELECT value FROM schema_meta").fetchone()[0] == "4"
     )
     project.close()
     # Existing backup from initial creation must not be overwritten.
