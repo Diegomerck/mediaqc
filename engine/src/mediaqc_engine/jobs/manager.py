@@ -6,11 +6,12 @@ import threading
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from mediaqc_engine import ai, evidence
 from mediaqc_engine.app.errors import AppError
-from mediaqc_engine.db import findings, runs
+from mediaqc_engine.db import audio_assignments, findings, runs
 from mediaqc_engine.db.project import Project, now
 from mediaqc_engine.detectors import registry
 from mediaqc_engine.detectors.contract import Detector, DetectorContext
@@ -19,6 +20,11 @@ from mediaqc_engine.jobs.recovery import Journal
 from mediaqc_engine.media.inspection import fingerprint, map_probe
 from mediaqc_engine.media.tools import MediaTools
 from mediaqc_engine.qc import profiles
+from mediaqc_engine.qc.audio_applicability import (
+    inventory,
+    parse_contract,
+    source_digest,
+)
 
 EventSink = Callable[[str, dict[str, object]], None]
 METHODS = {"analysis.start", "analysis.cancel", "analysis.retry", "analysis.get"}
@@ -65,8 +71,15 @@ class JobManager:
             if method == "analysis.start"
             else {"analysis_run_id"}
         )
-        if set(params) != expected or any(
-            not isinstance(value, str) for value in params.values()
+        optional = {"audio_assignment"} if method == "analysis.start" else set()
+        if (
+            not expected <= set(params)
+            or set(params) - expected - optional
+            or any(not isinstance(params[key], str) for key in expected)
+            or (
+                "audio_assignment" in params
+                and not isinstance(params["audio_assignment"], dict)
+            )
         ):
             raise AppError("INVALID_REQUEST", "Invalid analysis parameters")
         with self.lock:
@@ -83,6 +96,7 @@ class JobManager:
                     str(params["media_asset_id"]),
                     profile,
                     str(params["ai_mode"]),
+                    audio_assignment=params.get("audio_assignment"),
                 )
             identifier = str(params["analysis_run_id"])
             run = runs.fetch(project.connection, identifier)
@@ -112,7 +126,13 @@ class JobManager:
                 snapshot = json.loads(str(run["qc_profile_snapshot_json"]))
                 profiles.validate(snapshot)
                 return self.start(
-                    project, str(run["media_asset_id"]), snapshot, str(run["ai_mode"])
+                    project,
+                    str(run["media_asset_id"]),
+                    snapshot,
+                    str(run["ai_mode"]),
+                    audio_assignment=audio_assignments.document(
+                        project.connection, identifier
+                    ),
                 )
             if run["status"] in runs.TERMINAL:
                 raise AppError("RUN_ALREADY_TERMINAL", "Run has already finished")
@@ -136,6 +156,7 @@ class JobManager:
         profile: dict[str, object],
         ai_mode: str = "OFF",
         batch_item_id: str | None = None,
+        audio_assignment: object = None,
     ) -> dict[str, object]:
         if (
             self.active
@@ -162,6 +183,27 @@ class JobManager:
             raise AppError(
                 "RUN_START_FAILED", "Inspect the media successfully before analysis"
             )
+        assignment = None
+        if audio_assignment is not None:
+            try:
+                document: dict[str, Any] = json.loads(
+                    json.dumps(audio_assignment, allow_nan=False)
+                )
+                streams = tuple(
+                    dict(r)
+                    for r in project.connection.execute(
+                        "SELECT * FROM media_streams WHERE media_asset_id=?",
+                        (asset_id,),
+                    )
+                )
+                assignment = (
+                    parse_contract(
+                        document, inventory(streams), str(document.get("source_sha256"))
+                    ),
+                    document,
+                )
+            except (ValueError, TypeError, AttributeError) as exc:
+                raise AppError("INVALID_REQUEST", "Invalid audio assignment") from exc
         identifier = runs.create(
             project.connection,
             project.id,
@@ -170,6 +212,7 @@ class JobManager:
             asset["fast_fingerprint_sha256"],
             ai_mode,
             batch_item_id,
+            assignment,
         )
         self.identifier = identifier
         self.token = CancellationToken()
@@ -270,7 +313,7 @@ class JobManager:
                         f"UPDATE analysis_runs SET {tool}_version=? WHERE id=?",
                         (version["version"], identifier),
                     )
-            map_probe(tools.probe(source))
+            _, fresh_streams = map_probe(tools.probe(source))
             token.check()
             if (
                 fingerprint(source)["fast_fingerprint_sha256"]
@@ -285,6 +328,21 @@ class JobManager:
                     (asset["id"],),
                 )
             )
+            assignment_document = audio_assignments.document(db, identifier)
+            runtime_assignment = None
+            if assignment_document is not None:
+                try:
+                    runtime_assignment = parse_contract(
+                        assignment_document,
+                        inventory(tuple(fresh_streams)),
+                        source_digest(source, token),
+                    )
+                    if inventory(streams) != inventory(tuple(fresh_streams)):
+                        raise ValueError("Audio topology changed")
+                except ValueError as exc:
+                    raise AppError(
+                        "MEDIA_CHANGED", "Audio assignment source or topology changed"
+                    ) from exc
             context = DetectorContext(
                 identifier,
                 asset,
@@ -294,6 +352,7 @@ class JobManager:
                 token,
                 tools,
                 logging.LoggerAdapter(LOG, {"analysis_run_id": identifier}),
+                audio_assignment=runtime_assignment,
             )
             runs.transition(db, identifier, "ANALYZING")
             self.send("analysis.status", identifier, {"status": "ANALYZING"})
@@ -494,6 +553,13 @@ class JobManager:
             if not completed:
                 raise AppError(
                     "MEDIA_UNSUPPORTED", "No enabled audio detector supports this media"
+                )
+            if (
+                runtime_assignment is not None
+                and source_digest(source, token) != runtime_assignment.source_sha256
+            ):
+                raise AppError(
+                    "MEDIA_CHANGED", "Assigned source changed during analysis"
                 )
             # Optional failures cannot enter the deterministic failure handler.
             try:

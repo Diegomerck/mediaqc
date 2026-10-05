@@ -1,19 +1,33 @@
 """Sample peaks, clipping runs, silence and explicitly selected channel pairs."""
 
+from typing import cast
+
 import numpy as np
 
 from mediaqc_engine.detectors.audio.common import AudioDetector, number, pairs
 from mediaqc_engine.detectors.audio.dsp import Regions, correlation, db, rms, windows
 from mediaqc_engine.detectors.contract import DetectorContext, DetectorResult
+from mediaqc_engine.qc.audio_applicability import (
+    applicability_severity,
+    silence_applicability,
+)
 
 
 class LevelDetector(AudioDetector):
+    def __init__(self, detector_id: str):
+        super().__init__(detector_id)
+        if detector_id == "audio.silence":
+            self.detector_version = "1.1.0"
+
     def measure(
         self, context: DetectorContext, stream: dict[str, object]
     ) -> DetectorResult:
         policy = self.policy(context)
         kind = self.detector_id.rsplit(".", 1)[-1]
         channels = int(str(stream["channel_count"]))
+        assignment = (
+            getattr(context, "audio_assignment", None) if kind == "silence" else None
+        )
         selected = (
             pairs(policy, channels)
             if kind in {"channel_imbalance", "phase_correlation"}
@@ -30,7 +44,9 @@ class LevelDetector(AudioDetector):
         peak = np.zeros(channels)
         energy = np.zeros(channels)
         count = 0
-        regions = [Regions() for _ in range(max(1, len(selected)))]
+        regions = [
+            Regions() for _ in range(channels if assignment else max(1, len(selected)))
+        ]
         clip_regions = [Regions() for _ in range(channels)]
         clip_counts, longest, previous_run = (
             [0] * channels,
@@ -77,6 +93,7 @@ class LevelDetector(AudioDetector):
             if kind == "silence":
                 if start < number(policy, "ignore_head_seconds") or (
                     duration
+                    and number(policy, "ignore_tail_seconds") > 0
                     and finish > duration - number(policy, "ignore_tail_seconds")
                 ):
                     return
@@ -98,9 +115,34 @@ class LevelDetector(AudioDetector):
                     "affected_duration_seconds": finish - start,
                 }
                 title = "Negative channel phase correlation"
-            result.findings.append(
-                self.finding(context, stream, metrics, title, start, finish)
-            )
+            finding = self.finding(context, stream, metrics, title, start, finish)
+            if assignment is not None:
+                member = (int(str(stream["stream_index"])), index)
+                state = silence_applicability(assignment, member)
+                metrics["channel_indices"] = [index]
+                metrics["measurement_scope"] = {
+                    "kind": "channel",
+                    "members": [list(member)],
+                }
+                metadata = cast(dict[str, object], finding["metadata"])
+                metadata.update(
+                    assignment_identity=assignment.identity,
+                    applicability_policy="explicit_audio_v1",
+                    applicability=state,
+                    policy_severity=finding["severity"],
+                )
+                if state != "APPLICABLE":
+                    finding["severity"] = applicability_severity(
+                        state, str(finding["severity"])
+                    )
+                    finding["title"] = "Measured silence: " + state.lower().replace(
+                        "_", " "
+                    )
+                    finding["description"] = (
+                        "Measured channel silence retained; activity expectation is "
+                        + state
+                    )
+            result.findings.append(finding)
 
         for start, samples, rate in windows(
             context, stream, 0.05 if kind == "phase_correlation" else 0.01
@@ -110,11 +152,16 @@ class LevelDetector(AudioDetector):
             energy += np.sum(samples * samples, axis=0)
             count += len(samples)
             if kind == "silence":
-                level = db(rms(samples))
-                if level < number(policy, "threshold_dbfs"):
-                    event(0, regions[0].push(start, end, level))
-                else:
-                    event(0, regions[0].finish())
+                levels = (
+                    [db(float(v)) for v in np.sqrt(np.mean(samples * samples, axis=0))]
+                    if assignment
+                    else [db(rms(samples))]
+                )
+                for index, level in enumerate(levels):
+                    if level < number(policy, "threshold_dbfs"):
+                        event(index, regions[index].push(start, end, level))
+                    else:
+                        event(index, regions[index].finish())
             elif kind == "phase_correlation":
                 for index, (left, right) in enumerate(selected):
                     value = correlation(samples, left, right)
@@ -178,6 +225,16 @@ class LevelDetector(AudioDetector):
             "decoded_duration_seconds": end,
             "sample_count_per_channel": count,
         }
+        if assignment is not None:
+            result.metrics["audio_applicability"] = [
+                {
+                    "channel_index": i,
+                    "state": silence_applicability(
+                        assignment, (int(str(stream["stream_index"])), i)
+                    ),
+                }
+                for i in range(channels)
+            ]
         if kind == "phase_correlation":
             result.metrics["pairs"] = [
                 {

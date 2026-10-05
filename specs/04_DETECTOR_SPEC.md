@@ -1,6 +1,6 @@
 # 04 — Detector and Finding Specification
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## 1. Canonical detector interface
 
@@ -195,6 +195,12 @@ V1 SHALL avoid equating high sample peak with confirmed audible distortion; repo
 Detect periods below configured threshold for configured minimum duration.
 
 Do not call all silence an error. Profile determines whether it is INFO/WARN/FAIL and may define edge exemptions.
+
+A zero tail exemption disables tail exclusion entirely, including when decoded
+sample timing exceeds rounded container duration. Positive tail exemptions retain
+the strict event-end comparison with declared duration. Silence algorithm 1.0.1
+corrects this rounding omission without changing profile thresholds or severity;
+new runs may report previously omitted EOF silence. Saved results are unchanged.
 
 Metrics:
 - `rms_dbfs`
@@ -424,3 +430,29 @@ Engine SHALL expose:
 - Timeline units are seconds.
 - Synthetic injected defect timestamps are detected within testing tolerances.
 - Heuristic detectors expose confidence and evidence.
+
+### Phase 12 interpretation constraint
+
+Ordinary zoom, natural motion, normal cuts and camera focus/exposure adaptation
+alone are not technical faults. Acceptance SHALL include these negatives alongside
+injected unintended repeats/freezes and substantial digital corruption. Current
+heuristic candidates remain visible until discrimination is supported by tests;
+do not relax General Technical QC 1.2.0 or add reference-specific suppression.
+The initial corpus framework changes no production finding or verdict semantics.
+Dedicated dead/stuck-pixel detection is not established by the current downscaled
+visual-anomaly measurements and is not added implicitly by these acceptance goals.
+
+
+## Phase 12 explicit runtime audio applicability
+
+Explicitly assigned new runs use channel-scoped silence 1.1.0, preserving the 1.0.1 zero-tail correction, thresholds and sample timing. Expected channels use profile severity; unused/unknown channels retain timed measurements as INFO with EXPECTED_UNUSED/UNRESOLVED scope labels and original policy severity. Role alone never exempts a channel. No-assignment behavior stays stream-scoped. Explicit program loudness uses ordered unity-gain mono/stereo members; raw stream measurements remain INFO scope evidence. Program findings identify all physical members and use no single-stream evidence proxy. Unsupported program timing fails explicitly, never silently aligns, pads, trims or mixes. True peak and other detectors remain physical-stream measurements.
+
+### Approved V1 candidate interpretation
+
+Discontinuity, duplicate-frame and frame-cadence findings remain heuristic
+candidates with transparent evidence, not proof of unintended technical faults.
+The current duplicate/cadence decisions share repetition evidence; cadence is not
+independently verified against an acquisition expectation. Approved developer
+release limitations in testing section 21 never suppress runtime findings or
+modify saved verdicts. Absence of a discontinuity candidate does not certify
+click-free audio; cross-channel masking remains an explicitly accepted recall gap.

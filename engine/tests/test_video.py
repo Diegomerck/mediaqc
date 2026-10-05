@@ -79,24 +79,10 @@ def analyze(ctx: DetectorContext, kind: str) -> DetectorResult:
 
 @pytest.mark.parametrize("fixture", json.loads(MANIFEST.read_text()))
 def test_manifest(tmp_path: Path, fixture: dict[str, object]) -> None:
-    kind = str(fixture["fixture_id"]).removeprefix("video.").removesuffix(".001")
-    ctx = context(tmp_path, kind)
-    for expectation in cast(list[dict[str, object]], fixture["expected_findings"]):
-        result = analyze(ctx, str(expectation["detector_id"]).removeprefix("video."))
-        assert len(result.findings) == 1, result
-        finding = result.findings[0]
-        for field in ("start_time_seconds", "end_time_seconds"):
-            if field in expectation:
-                assert finding[field] == pytest.approx(expectation[field], abs=0.05)
-        assert finding["threshold"] == settings(
-            ctx.qc_profile, str(expectation["detector_id"])
-        )
-        assert finding["stream_id"] == ctx.streams[0]["id"]
-        assert finding["detector_version"] == "1.0.0"
-    for forbidden in cast(list[dict[str, str]], fixture["forbidden_findings"]):
-        assert not analyze(
-            ctx, forbidden["detector_id"].removeprefix("video.")
-        ).findings
+    from detector_acceptance import run_case
+
+    result = run_case(fixture, tmp_path)
+    assert result["status"] == "PASS", result["errors"]
 
 
 @pytest.mark.parametrize("kind", ["clean", "static", "cut", "fade"])

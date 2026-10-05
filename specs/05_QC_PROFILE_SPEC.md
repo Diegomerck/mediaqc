@@ -276,3 +276,21 @@ Imported profiles MUST be schema-validated before persistence.
 - Invalid profiles cannot start a run.
 - Disabling a detector prevents its execution.
 - Editing a built-in profile does not silently rewrite historical results.
+
+
+## 10. Phase 12 audio applicability design boundary
+
+The developer contract in `docs/PHASE_12_AUDIO_APPLICABILITY_CONTRACT.md`
+defines explicit source-bound channel expectations and ordered program members.
+Its 0.1.0 prototype does not modify this profile schema or runtime verdicts.
+Role, measurement scope, compliance and confirmed technical defect remain separate.
+Any future runtime applicability policy must be explicitly versioned; it must not
+reinterpret saved multitrack/mono-leg measurements as designated stereo programs
+or silently remove active findings from historical results.
+
+
+## Phase 12 explicit runtime audio applicability
+
+The opt-in runtime policy explicit_audio_v1 is separate from unchanged General Technical QC 1.2.0 thresholds. It evaluates silence for explicitly expected channels, retains unused and unknown silence as INFO, and evaluates program loudness only on declared programs. Unknown scope never asserts technical cleanliness; analysis/report interpretation notes explain unresolved coverage. Raw measurement, original threshold severity, assignment identity and applicability remain retained. Canonical severity/disposition aggregation is unchanged. This policy applies only to new assigned runs, not historical results.
+
+The new applicability severities reside in the versioned `qc/audio_applicability_v1.json` policy document, not detector constants. Changing its distributed semantics requires a new policy version; saved findings retain their actual severity and evaluation metadata.

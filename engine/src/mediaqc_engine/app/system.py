@@ -13,7 +13,12 @@ def capabilities(provider: ai.Provider | None = None) -> dict[str, object]:
     return {
         "engine_version": __version__,
         "protocol_version": PROTOCOL_VERSION,
-        "schema_version": 3,
+        "schema_version": 4,
+        "audio_applicability": {
+            "assignment_schema": "0.1.0",
+            "policy_version": "explicit_audio_v1",
+            "batch_assignments": False,
+        },
         "batch": {
             "available": True,
             "contract_version": "1.0",

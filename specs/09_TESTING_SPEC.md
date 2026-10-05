@@ -1,6 +1,6 @@
 # 09 — Testing and Validation Specification
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 ## 1. Testing philosophy
 
@@ -313,3 +313,90 @@ implementation step, then perform release validation when authorized.
 5. Existing deterministic suites, 100+ real-file integration, scalability evidence.
 6. Required quality gate and installed/portable release matrix only in an explicitly
    authorized implementation/release task, not during specification editing.
+
+## 20. Phase 12 acceptance corpus
+
+Use the explicit scoped manifest contract implemented in
+`tools/detector_acceptance.py` and documented in `docs/PHASE_12.md`.
+Expected findings SHALL match one-to-one with exact severity, stream selection,
+declared timestamp tolerances and optional numeric tolerances; unexpected extra
+findings SHALL fail. The scope, profile version and any test-only overrides SHALL
+be explicit. Null/insufficient/not-applicable measurements SHALL not be presented
+as measured-clean. Disabled, skipped or failed execution SHALL not pass a negative
+test. Generated sources SHALL be reproducible, small and excluded from Git.
+
+Reference reviews SHALL distinguish confirmed technical defect (A), selected
+profile compliance (B), unresolved/scope-inapplicable program interpretation (C),
+and reference false positive (D). These are developer acceptance labels, not new
+finding severity/disposition values. Never rewrite saved project history to apply
+them. Preserve source identities, annotations, measurements and profile snapshots.
+Local-only originals SHALL not be required for CI or copied into the repository.
+
+Normal photographic behavior (zoom, cuts, natural motion, focus/exposure
+adaptation) SHALL be negative technical-defect cases. Intentional empty ISO tracks
+are not technical defects. Program loudness must respect declared mix/ISO scope;
+the initial framework records scope without changing runtime routing or policy.
+The unresolved MXF transient SHALL not be assumed clean or defective.
+
+Investigation manifests SHALL report actual failures with nonzero exit status;
+known gaps must not become silently allowed findings. Positive injected defects
+must remain detected when an algorithm changes. Preserve General Technical QC
+1.2.0 and Phase 10 performance safeguards in this framework-first increment.
+
+
+Applicability contract tests SHALL reject invalid/duplicate program members, stale
+source identity, unknown fields and conflicting expected/unused assignments.
+Omitted expectations remain unresolved; required ISO silence must not inherit an
+unused-track exemption. Developer scope labels are not production verdicts.
+Discontinuity discrimination experiments SHALL preserve clustered and multi-sample
+injected click positives in addition to isolated impulses and legitimate sharp
+transient negatives. Rejected experimental rules do not replace production gates.
+
+Runtime applicability regression coverage SHALL include empty explicit assignment
+versus no assignment, non-default mono program selection, channel-scoped evidence,
+retry after reopen with a changed full source hash despite an unchanged bounded
+fast fingerprint, and saved assignment context in HTML/PDF exports without findings.
+Causal discontinuity counterexamples remain separate from production acceptance:
+a filtered impulse can share local PCM with an authored transient. Diagnostic
+success must never waive required defect recall or clean-negative expectations.
+
+## 21. Approved Phase 12 V1 release disposition
+
+This approved amendment supersedes the requirement that every investigation
+mismatch must block release; it does not change ground truth or runtime QC policy.
+Keep the strict scientific/ground-truth comparison and its FAIL/errors unchanged.
+Add a separate release assessment: REQUIRED_PASS, ACCEPTED_LIMITATION,
+ACCEPTED_EXPECTATION_LIMITATION, NEEDS_INDEPENDENT_EVIDENCE, or REGRESSION.
+Changed registered behavior blocks as REGRESSION or REVIEW_REQUIRED (including
+apparent improvements), until reviewed; it must never silently expand an exception.
+
+The approved known limitations are audio.discontinuity masked, masked_swapped,
+sharp, sharp_stereo, sharp_delayed, sustained_shifted and mxf_sharp (all .001),
+and video.zoom_settle.001 and video.static_between_cuts.001. The two masked cases
+are explicit accepted missed-defect/recall limitations, not uncertain ground truth
+or proof that correction is impossible. The other seven are accepted false-positive
+limitations. video.intentional_hold.001, video.intentional_hold_lossy.001 and
+video.intentional_periodic_hold.001 are unavailable-intent expectation problems:
+retain their legitimate-content annotations and fault-labelled counterparts;
+require consistent semantic detector observations for identical encoded inputs.
+
+Only exact registry entries may be nonblocking. Bind them to the complete case
+manifest (including ground truth), generator source digest, effective QC profile
+snapshot, exact detector versions, bundled-tool provenance and complete stable
+findings/measurements/execution state. Ignore only generated finding UUIDs and
+ordering when comparing semantic observations. No broad detector, filename,
+interval or category exemption, automatic baseline refresh, skip or xfail is
+permitted. Reject malformed/duplicate entries. Persist visible ground-truth and
+release results together, with classification, reason and approval provenance.
+Report absent registry cases as not exercised, never as passed.
+
+The original MXF event near 7.567 s is a separately identified unresolved reference
+review requiring independent evidence. It is nonblocking but is not clean, faulty,
+measured again, or an exception applicable to synthetic/runtime findings.
+
+All unregistered mismatches, extra findings, changed measurements/timing/severity,
+failed/skipped executions and lost required-positive recall remain blocking.
+Accepted limits do not waive clean-corpus false-positive budgets, performance,
+applicability, evidence, source immutability or final release validation. Production
+candidate findings, thresholds, severity/disposition semantics and historical
+results remain unchanged. No temporal-expectations architecture is authorized.

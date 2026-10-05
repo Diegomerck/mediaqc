@@ -7,6 +7,7 @@ from typing import Protocol
 
 from mediaqc_engine.jobs.cancellation import CancellationToken
 from mediaqc_engine.media.tools import MediaTools
+from mediaqc_engine.qc.audio_applicability import Snapshot
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,7 @@ class DetectorContext:
     media_tools: MediaTools
     logger: logging.LoggerAdapter[logging.Logger]
     report_progress: Callable[[float], None] = lambda seconds: None
+    audio_assignment: Snapshot | None = None
 
 
 @dataclass

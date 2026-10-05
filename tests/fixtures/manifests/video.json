@@ -9,7 +9,25 @@
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": [
+      "video.decode_integrity",
+      "video.frame_rate",
+      "video.timestamp_integrity",
+      "video.black_frame",
+      "video.near_black_frame",
+      "video.freeze",
+      "video.duplicate_frame",
+      "video.frame_cadence",
+      "video.luminance_anomaly",
+      "video.flash",
+      "video.exposure_anomaly",
+      "video.color_anomaly",
+      "video.visual_anomaly"
+    ],
+    "category": "known_good",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.black.001",
@@ -21,14 +39,20 @@
         "detector_id": "video.black_frame",
         "start_time_seconds": 1,
         "end_time_seconds": 2,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "WARN",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.black_frame", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.near_black.001",
@@ -40,14 +64,20 @@
         "detector_id": "video.near_black_frame",
         "start_time_seconds": 1,
         "end_time_seconds": 2.2,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "INFO",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.near_black_frame", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.freeze.001",
@@ -59,14 +89,20 @@
         "detector_id": "video.freeze",
         "start_time_seconds": 1,
         "end_time_seconds": 2,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "WARN",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.freeze", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.duplicate.001",
@@ -78,20 +114,32 @@
         "detector_id": "video.duplicate_frame",
         "start_time_seconds": 1,
         "end_time_seconds": 1.12,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "INFO",
+        "stream_index": 0
       },
       {
         "detector_id": "video.frame_cadence",
         "start_time_seconds": 1,
         "end_time_seconds": 1.12,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "WARN",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": [
+      "video.duplicate_frame",
+      "video.frame_cadence",
+      "video.decode_integrity"
+    ],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.flash.001",
@@ -103,14 +151,20 @@
         "detector_id": "video.flash",
         "start_time_seconds": 1,
         "end_time_seconds": 1.12,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "WARN",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.flash", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.luma_anomaly.001",
@@ -122,14 +176,20 @@
         "detector_id": "video.luminance_anomaly",
         "start_time_seconds": 1,
         "end_time_seconds": 1.28,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "WARN",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.luminance_anomaly", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.timestamp_irregularity.001",
@@ -141,14 +201,20 @@
         "detector_id": "video.timestamp_integrity",
         "start_time_seconds": 3,
         "end_time_seconds": 3.04,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "FAIL",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.timestamp_integrity", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.visual_anomaly.001",
@@ -160,14 +226,20 @@
         "detector_id": "video.visual_anomaly",
         "start_time_seconds": 1,
         "end_time_seconds": 1.12,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "WARN",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.visual_anomaly", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.exposure.001",
@@ -179,14 +251,20 @@
         "detector_id": "video.exposure_anomaly",
         "start_time_seconds": 1,
         "end_time_seconds": 2.2,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "INFO",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.exposure_anomaly", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.color.001",
@@ -198,14 +276,20 @@
         "detector_id": "video.color_anomaly",
         "start_time_seconds": 1,
         "end_time_seconds": 2.2,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "INFO",
+        "stream_index": 0
       }
     ],
     "forbidden_findings": [
       {
         "detector_id": "video.decode_integrity"
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["video.color_anomaly", "video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "video.decode_corrupt.001",
@@ -214,9 +298,197 @@
     "duration_seconds": 4,
     "expected_findings": [
       {
-        "detector_id": "video.decode_integrity"
+        "detector_id": "video.decode_integrity",
+        "severity": "FAIL",
+        "stream_index": 0
       }
     ],
-    "forbidden_findings": []
+    "forbidden_findings": [],
+    "profile_version": "1.2.0",
+    "detectors": ["video.decode_integrity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
+  },
+  {
+    "fixture_id": "video.static.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": [
+      "video.decode_integrity",
+      "video.frame_rate",
+      "video.timestamp_integrity",
+      "video.black_frame",
+      "video.near_black_frame",
+      "video.freeze",
+      "video.duplicate_frame",
+      "video.frame_cadence",
+      "video.luminance_anomaly",
+      "video.flash",
+      "video.exposure_anomaly",
+      "video.color_anomaly",
+      "video.visual_anomaly"
+    ],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Ordinary photographic behavior; no injected technical defect."
+  },
+  {
+    "fixture_id": "video.cut.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": [
+      "video.decode_integrity",
+      "video.frame_rate",
+      "video.timestamp_integrity",
+      "video.black_frame",
+      "video.near_black_frame",
+      "video.freeze",
+      "video.duplicate_frame",
+      "video.frame_cadence",
+      "video.luminance_anomaly",
+      "video.flash",
+      "video.exposure_anomaly",
+      "video.color_anomaly",
+      "video.visual_anomaly"
+    ],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Ordinary photographic behavior; no injected technical defect."
+  },
+  {
+    "fixture_id": "video.fade.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": [
+      "video.decode_integrity",
+      "video.frame_rate",
+      "video.timestamp_integrity",
+      "video.black_frame",
+      "video.near_black_frame",
+      "video.freeze",
+      "video.duplicate_frame",
+      "video.frame_cadence",
+      "video.luminance_anomaly",
+      "video.flash",
+      "video.exposure_anomaly",
+      "video.color_anomaly",
+      "video.visual_anomaly"
+    ],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Ordinary photographic behavior; no injected technical defect."
+  },
+  {
+    "fixture_id": "video.zoom.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": [
+      "video.decode_integrity",
+      "video.frame_rate",
+      "video.timestamp_integrity",
+      "video.black_frame",
+      "video.near_black_frame",
+      "video.freeze",
+      "video.duplicate_frame",
+      "video.frame_cadence",
+      "video.luminance_anomaly",
+      "video.flash",
+      "video.exposure_anomaly",
+      "video.color_anomaly",
+      "video.visual_anomaly"
+    ],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Ordinary photographic behavior; no injected technical defect."
+  },
+  {
+    "fixture_id": "video.auto_exposure.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": [
+      "video.decode_integrity",
+      "video.frame_rate",
+      "video.timestamp_integrity",
+      "video.black_frame",
+      "video.near_black_frame",
+      "video.freeze",
+      "video.duplicate_frame",
+      "video.frame_cadence",
+      "video.luminance_anomaly",
+      "video.flash",
+      "video.exposure_anomaly",
+      "video.color_anomaly",
+      "video.visual_anomaly"
+    ],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Ordinary photographic behavior; no injected technical defect."
+  },
+  {
+    "fixture_id": "video.focus_adaptation.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": [
+      "video.decode_integrity",
+      "video.frame_rate",
+      "video.timestamp_integrity",
+      "video.black_frame",
+      "video.near_black_frame",
+      "video.freeze",
+      "video.duplicate_frame",
+      "video.frame_cadence",
+      "video.luminance_anomaly",
+      "video.flash",
+      "video.exposure_anomaly",
+      "video.color_anomaly",
+      "video.visual_anomaly"
+    ],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Ordinary photographic behavior; no injected technical defect."
+  },
+  {
+    "fixture_id": "video.rate_mismatch.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "category": "profile_compliance",
+    "rationale": "25 fps encoded source tested against explicit 30 fps delivery requirement.",
+    "detectors": ["video.frame_rate"],
+    "profile_overrides": {
+      "video.frame_rate": {
+        "expected_fps": 30
+      }
+    },
+    "expected_findings": [
+      {
+        "detector_id": "video.frame_rate",
+        "severity": "WARN",
+        "stream_index": 0
+      }
+    ],
+    "metric_expectations": [
+      {
+        "detector_id": "video.frame_rate",
+        "stream_index": 0,
+        "metrics": {
+          "measured_fps": {
+            "value": 25,
+            "abs_tolerance": 0.001
+          }
+        }
+      }
+    ]
   }
 ]

@@ -75,7 +75,9 @@ def generate(
                     )
                 if stream is None:
                     raise AppError(
-                        "EVIDENCE_UNAVAILABLE", "Finding has no decodable stream"
+                        "EVIDENCE_UNAVAILABLE",
+                        "No single-stream preview is available; "
+                        "retained metrics identify the measurement scope",
                     )
                 if kind == "VIDEO_FRAME_BEFORE" and start == 0:
                     raise AppError(
@@ -126,9 +128,18 @@ def generate(
                         if kind == "AUDIO_WAVEFORM"
                         else "showspectrumpic=s=640x180:legend=0"
                     )
+                    selection = "aformat=channel_layouts=mono"
+                    measured = cast(dict[str, object], finding["measurements"])
+                    scope = measured.get("measurement_scope")
+                    if isinstance(scope, dict) and scope.get("kind") == "channel":
+                        members = scope.get("members")
+                        if isinstance(members, list) and len(members) == 1:
+                            channel = members[0][1]
+                            if type(channel) is int and channel >= 0:
+                                selection = f"pan=mono|c0=c{channel}"
                     args += [
                         "-filter_complex",
-                        f"[0:{stream[0]}]atrim=duration={window},asetpts=PTS-STARTPTS,aformat=channel_layouts=mono,aresample=16000,{visual}[out]",
+                        f"[0:{stream[0]}]atrim=duration={window},asetpts=PTS-STARTPTS,{selection},aresample=16000,{visual}[out]",
                         "-map",
                         "[out]",
                         "-frames:v",

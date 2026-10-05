@@ -139,7 +139,7 @@ def main() -> None:
     }
     try:
         capabilities = client.call("system.capabilities")
-        assert capabilities["schema_version"] == 3
+        assert capabilities["schema_version"] == 4
         assert capabilities["batch"]["max_active_files"] == 1
         assert capabilities["ai"]["local_available"] is False
         record["capabilities"] = capabilities
@@ -183,7 +183,15 @@ def main() -> None:
         client.close()
         # A controlled schema-2 fixture retains real QC history and report records.
         with sqlite3.connect(project["project_file"]) as db:
-            for table in ("batch_reports", "batch_items", "batches"):
+            for table in (
+                "audio_assignment_members",
+                "audio_assignment_programs",
+                "audio_assignment_channels",
+                "audio_assignments",
+                "batch_reports",
+                "batch_items",
+                "batches",
+            ):
                 db.execute(f"DROP TABLE {table}")
             db.execute("UPDATE schema_meta SET value='2' WHERE key='schema_version'")
         client = Client(executable, output)

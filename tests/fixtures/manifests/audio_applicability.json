@@ -1,0 +1,141 @@
+[
+  {
+    "fixture_id": "audio.unused_iso.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": [
+      "audio.silence",
+      "audio.loudness.integrated",
+      "audio.sample_peak"
+    ],
+    "expected_findings": [
+      {
+        "detector_id": "audio.silence",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 0,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 1e-6
+      }
+    ],
+    "metric_expectations": [
+      {
+        "detector_id": "audio.loudness.integrated",
+        "stream_index": 0,
+        "metrics": {
+          "state": "NO_GATED_AUDIO",
+          "integrated_lufs": null
+        }
+      },
+      {
+        "detector_id": "audio.sample_peak",
+        "stream_index": 0,
+        "metrics": {
+          "sample_peak_dbfs": [-300.0],
+          "sample_count_per_channel": 288000
+        }
+      }
+    ],
+    "category": "intentional_silence",
+    "rationale": "Preserve measured silence and unchanged profile WARN. Declared unused ISO: finding is not proof of a defect; runtime applicability remains absent."
+  },
+  {
+    "fixture_id": "audio.required_silent.001",
+    "generator_version": "1.2.0",
+    "profile_version": "1.2.0",
+    "detectors": [
+      "audio.silence",
+      "audio.loudness.integrated",
+      "audio.sample_peak"
+    ],
+    "expected_findings": [
+      {
+        "detector_id": "audio.silence",
+        "stream_index": 0,
+        "severity": "WARN",
+        "start_time_seconds": 0,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 1e-6
+      }
+    ],
+    "metric_expectations": [
+      {
+        "detector_id": "audio.loudness.integrated",
+        "stream_index": 0,
+        "metrics": {
+          "state": "NO_GATED_AUDIO",
+          "integrated_lufs": null
+        }
+      },
+      {
+        "detector_id": "audio.sample_peak",
+        "stream_index": 0,
+        "metrics": {
+          "sample_peak_dbfs": [-300.0],
+          "sample_count_per_channel": 288000
+        }
+      }
+    ],
+    "category": "technical_defect",
+    "rationale": "Preserve measured silence and unchanged profile WARN. Required channel unexpectedly silent: no broad empty-track exemption may hide it."
+  },
+  {
+    "fixture_id": "audio.discontinuity.mxf_click.001",
+    "generator_version": "1.3.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.silence"],
+    "profile_overrides": {},
+    "expected_findings": [
+      {
+        "detector_id": "audio.silence",
+        "stream_index": 3,
+        "severity": "WARN",
+        "start_time_seconds": 0,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 1e-6
+      },
+      {
+        "detector_id": "audio.silence",
+        "stream_index": 4,
+        "severity": "WARN",
+        "start_time_seconds": 0,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 1e-6
+      },
+      {
+        "detector_id": "audio.silence",
+        "stream_index": 5,
+        "severity": "WARN",
+        "start_time_seconds": 0,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 1e-6
+      },
+      {
+        "detector_id": "audio.silence",
+        "stream_index": 6,
+        "severity": "WARN",
+        "start_time_seconds": 0,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 1e-6
+      },
+      {
+        "detector_id": "audio.silence",
+        "stream_index": 7,
+        "severity": "WARN",
+        "start_time_seconds": 0,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 1e-6
+      },
+      {
+        "detector_id": "audio.silence",
+        "stream_index": 8,
+        "severity": "WARN",
+        "start_time_seconds": 0,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 1e-6
+      }
+    ],
+    "category": "intentional_silence",
+    "rationale": "Two active mono production legs and six owner-declared unused ISOs. Retain raw silence WARN on exactly streams 3-8; this is measurement/profile evidence, not role-aware defect adjudication."
+  }
+]

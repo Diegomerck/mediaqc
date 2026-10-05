@@ -11,27 +11,60 @@
     },
     "expected_findings": [],
     "forbidden_findings": [
-      { "detector_id": "audio.clipping" },
-      { "detector_id": "audio.hum" },
-      { "detector_id": "audio.dropout" },
-      { "detector_id": "audio.discontinuity" }
-    ]
+      {
+        "detector_id": "audio.clipping"
+      },
+      {
+        "detector_id": "audio.hum"
+      },
+      {
+        "detector_id": "audio.dropout"
+      },
+      {
+        "detector_id": "audio.discontinuity"
+      }
+    ],
+    "profile_version": "1.2.0",
+    "detectors": [
+      "audio.true_peak",
+      "audio.sample_peak",
+      "audio.clipping",
+      "audio.silence",
+      "audio.noise_floor",
+      "audio.hum",
+      "audio.channel_imbalance",
+      "audio.phase_correlation",
+      "audio.dropout",
+      "audio.discontinuity",
+      "audio.loudness.integrated",
+      "audio.loudness.short_term",
+      "audio.loudness.range"
+    ],
+    "category": "known_good",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.clipping.001",
     "generator_version": "1.0.0",
     "file": "audio.clipping.001.wav",
     "duration_seconds": 6.0,
-    "parameters": { "amplitude": 1.0 },
+    "parameters": {
+      "amplitude": 1.0
+    },
     "expected_findings": [
       {
         "detector_id": "audio.clipping",
-        "severity_min": "FAIL",
         "start_time_seconds": 1.0,
         "end_time_seconds": 1.1,
-        "timestamp_tolerance_seconds": 0.001
+        "timestamp_tolerance_seconds": 0.001,
+        "severity": "FAIL",
+        "stream_index": 0
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.clipping"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.true_peak.001",
@@ -44,56 +77,85 @@
       "phase_radians": 0.7853981633974483
     },
     "expected_findings": [
-      { "detector_id": "audio.true_peak", "severity_min": "FAIL" }
-    ]
+      {
+        "detector_id": "audio.true_peak",
+        "severity": "FAIL",
+        "stream_index": 0
+      }
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.true_peak"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.silence.001",
     "generator_version": "1.0.0",
     "file": "audio.silence.001.wav",
     "duration_seconds": 6.0,
-    "parameters": { "gap_amplitude": 0.0 },
+    "parameters": {
+      "gap_amplitude": 0.0
+    },
     "expected_findings": [
       {
         "detector_id": "audio.silence",
-        "severity_min": "WARN",
         "start_time_seconds": 2.0,
         "end_time_seconds": 4.0,
-        "timestamp_tolerance_seconds": 0.01
+        "timestamp_tolerance_seconds": 0.01,
+        "severity": "WARN",
+        "stream_index": 0
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.silence"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.dropout.short.001",
     "generator_version": "1.0.0",
     "file": "audio.dropout.short.001.wav",
     "duration_seconds": 6.0,
-    "parameters": { "gap_amplitude": 0.0 },
+    "parameters": {
+      "gap_amplitude": 0.0
+    },
     "expected_findings": [
       {
         "detector_id": "audio.dropout",
-        "severity_min": "WARN",
         "start_time_seconds": 2.0,
         "end_time_seconds": 2.02,
-        "timestamp_tolerance_seconds": 0.002
+        "timestamp_tolerance_seconds": 0.002,
+        "severity": "WARN",
+        "stream_index": 0
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.dropout"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.discontinuity.001",
     "generator_version": "1.0.0",
     "file": "audio.discontinuity.001.wav",
     "duration_seconds": 6.0,
-    "parameters": { "spike_amplitude": 0.9 },
+    "parameters": {
+      "spike_amplitude": 0.9
+    },
     "expected_findings": [
       {
         "detector_id": "audio.discontinuity",
-        "severity_min": "WARN",
         "start_time_seconds": 2.0,
         "end_time_seconds": 2.0000416667,
-        "timestamp_tolerance_seconds": 0.001
+        "timestamp_tolerance_seconds": 0.001,
+        "severity": "WARN",
+        "stream_index": 0
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.hum.50.001",
@@ -108,12 +170,17 @@
     "expected_findings": [
       {
         "detector_id": "audio.hum",
-        "severity_min": "WARN",
         "start_time_seconds": 0.0,
         "end_time_seconds": 6.0,
-        "timestamp_tolerance_seconds": 0.5
+        "timestamp_tolerance_seconds": 0.5,
+        "severity": "WARN",
+        "stream_index": 0
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.hum"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.hum.60.001",
@@ -128,12 +195,17 @@
     "expected_findings": [
       {
         "detector_id": "audio.hum",
-        "severity_min": "WARN",
         "start_time_seconds": 0.0,
         "end_time_seconds": 6.0,
-        "timestamp_tolerance_seconds": 0.5
+        "timestamp_tolerance_seconds": 0.5,
+        "severity": "WARN",
+        "stream_index": 0
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.hum"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.noise_floor.001",
@@ -146,33 +218,263 @@
       "repeated_block_seconds": 0.1
     },
     "expected_findings": [
-      { "detector_id": "audio.noise_floor", "severity_min": "WARN" }
-    ]
+      {
+        "detector_id": "audio.noise_floor",
+        "severity": "WARN",
+        "stream_index": 0
+      }
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.noise_floor"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.channel_imbalance.001",
     "generator_version": "1.0.0",
     "file": "audio.channel_imbalance.001.wav",
     "duration_seconds": 6.0,
-    "parameters": { "channel_amplitude_ratio": 0.1 },
+    "parameters": {
+      "channel_amplitude_ratio": 0.1
+    },
     "expected_findings": [
-      { "detector_id": "audio.channel_imbalance", "severity_min": "WARN" }
-    ]
+      {
+        "detector_id": "audio.channel_imbalance",
+        "severity": "WARN",
+        "stream_index": 0
+      }
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.channel_imbalance"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
   },
   {
     "fixture_id": "audio.phase_negative.001",
     "generator_version": "1.0.0",
     "file": "audio.phase_negative.001.wav",
     "duration_seconds": 6.0,
-    "parameters": { "correlation": -1.0 },
+    "parameters": {
+      "correlation": -1.0
+    },
     "expected_findings": [
       {
         "detector_id": "audio.phase_correlation",
-        "severity_min": "WARN",
         "start_time_seconds": 0.0,
         "end_time_seconds": 6.0,
-        "timestamp_tolerance_seconds": 0.05
+        "timestamp_tolerance_seconds": 0.05,
+        "severity": "WARN",
+        "stream_index": 0
       }
-    ]
+    ],
+    "profile_version": "1.2.0",
+    "detectors": ["audio.phase_correlation"],
+    "category": "technical_defect",
+    "rationale": "Original deterministic injection/control; retain existing expectation and timing."
+  },
+  {
+    "fixture_id": "audio.loudness.integrated.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.loudness.integrated"],
+    "expected_findings": [
+      {
+        "detector_id": "audio.loudness.integrated",
+        "severity": "WARN",
+        "stream_index": 0
+      }
+    ],
+    "profile_overrides": {},
+    "metric_expectations": [
+      {
+        "detector_id": "audio.loudness.integrated",
+        "stream_index": 0,
+        "metrics": {
+          "integrated_lufs": {
+            "value": -16.98,
+            "abs_tolerance": 0.2
+          }
+        }
+      }
+    ],
+    "category": "profile_compliance",
+    "rationale": "Analytically constructed signal; policy bounds explicitly separate from measurement."
+  },
+  {
+    "fixture_id": "audio.loudness.short_term.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.loudness.short_term"],
+    "expected_findings": [
+      {
+        "detector_id": "audio.loudness.short_term",
+        "severity": "WARN",
+        "stream_index": 0,
+        "start_time_seconds": 2.9,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 0.11
+      }
+    ],
+    "profile_overrides": {
+      "audio.loudness.short_term": {
+        "enabled": true,
+        "max_lufs": -25
+      }
+    },
+    "metric_expectations": [
+      {
+        "detector_id": "audio.loudness.short_term",
+        "stream_index": 0,
+        "metrics": {
+          "short_term_lufs": {
+            "value": -16.98,
+            "abs_tolerance": 0.2
+          }
+        }
+      }
+    ],
+    "category": "profile_compliance",
+    "rationale": "Analytically constructed signal; policy bounds explicitly separate from measurement."
+  },
+  {
+    "fixture_id": "audio.loudness.momentary.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.loudness.momentary"],
+    "expected_findings": [
+      {
+        "detector_id": "audio.loudness.momentary",
+        "severity": "WARN",
+        "stream_index": 0,
+        "start_time_seconds": 0.3,
+        "end_time_seconds": 6,
+        "timestamp_tolerance_seconds": 0.11
+      }
+    ],
+    "profile_overrides": {
+      "audio.loudness.momentary": {
+        "enabled": true,
+        "max_lufs": -25
+      }
+    },
+    "metric_expectations": [
+      {
+        "detector_id": "audio.loudness.momentary",
+        "stream_index": 0,
+        "metrics": {
+          "momentary_lufs": {
+            "value": -16.98,
+            "abs_tolerance": 0.2
+          }
+        }
+      }
+    ],
+    "category": "profile_compliance",
+    "rationale": "Analytically constructed signal; policy bounds explicitly separate from measurement."
+  },
+  {
+    "fixture_id": "audio.loudness.range.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.loudness.range"],
+    "expected_findings": [
+      {
+        "detector_id": "audio.loudness.range",
+        "severity": "WARN",
+        "stream_index": 0
+      }
+    ],
+    "profile_overrides": {
+      "audio.loudness.range": {
+        "max_lu": 10
+      }
+    },
+    "metric_expectations": [
+      {
+        "detector_id": "audio.loudness.range",
+        "stream_index": 0,
+        "metrics": {
+          "loudness_range_lu": {
+            "value": 12.04,
+            "abs_tolerance": 0.5
+          }
+        }
+      }
+    ],
+    "category": "profile_compliance",
+    "rationale": "Analytically constructed signal; policy bounds explicitly separate from measurement."
+  },
+  {
+    "fixture_id": "audio.sample_peak.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.sample_peak"],
+    "expected_findings": [
+      {
+        "detector_id": "audio.sample_peak",
+        "severity": "WARN",
+        "stream_index": 0,
+        "measurements": {
+          "sample_peak_dbfs": {
+            "value": -0.00869,
+            "abs_tolerance": 0.001
+          }
+        }
+      }
+    ],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "profile_compliance",
+    "rationale": "Analytically constructed signal; policy bounds explicitly separate from measurement."
+  },
+  {
+    "fixture_id": "audio.digital_silence.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.loudness.integrated", "audio.noise_floor"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [
+      {
+        "detector_id": "audio.loudness.integrated",
+        "stream_index": 0,
+        "metrics": {
+          "state": "NO_GATED_AUDIO",
+          "integrated_lufs": null
+        }
+      },
+      {
+        "detector_id": "audio.noise_floor",
+        "stream_index": 0,
+        "metrics": {
+          "state": "INSUFFICIENT_QUIET_REGIONS",
+          "estimated_noise_floor_dbfs": null
+        }
+      }
+    ],
+    "category": "intentional_silence",
+    "rationale": "Analytically constructed signal; policy bounds explicitly separate from measurement."
+  },
+  {
+    "fixture_id": "audio.production_multitrack.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.channel_imbalance", "audio.phase_correlation"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Seven channels; only zero-based pair [0,1] is L/R. Remaining unequal ISO levels are intentional."
+  },
+  {
+    "fixture_id": "audio.percussive.001",
+    "generator_version": "1.1.0",
+    "profile_version": "1.2.0",
+    "detectors": ["audio.discontinuity", "audio.dropout"],
+    "expected_findings": [],
+    "profile_overrides": {},
+    "metric_expectations": [],
+    "category": "known_good",
+    "rationale": "Analytic continuous attack/decay tone burst: no sample insertion, gap or splice."
   }
 ]
