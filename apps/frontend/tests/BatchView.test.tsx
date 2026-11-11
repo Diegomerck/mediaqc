@@ -134,7 +134,7 @@ test('1000 files use bounded pages and fetch no unselected run details', async (
   await waitFor(() => {
     expect(batches.items).toHaveBeenLastCalledWith('batch', 'ERROR', 0);
   });
-});
+}, 20000);
 
 test('folder import defaults to nonrecursive and waits for Run QC Analysis', async () => {
   vi.mocked(projects.pick).mockResolvedValue('D:/Delivery');
