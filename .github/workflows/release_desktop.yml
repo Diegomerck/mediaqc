@@ -41,10 +41,10 @@ jobs:
           enable-cache: true
 
       - name: Sync Python environment
-        run: python -m uv sync --locked
+        run: uv sync --locked
 
       - name: Prepare media tools
-        run: python -m uv run python tools/prepare_media_tools.py
+        run: uv run python tools/prepare_media_tools.py
 
       - name: Install Node dependencies
         run: npm ci
@@ -56,10 +56,10 @@ jobs:
         run: npm run build --workspace @mediaqc/frontend
 
       - name: Build Python engine
-        run: python -m uv run python tools/build_engine.py
+        run: uv run python tools/build_engine.py
 
       - name: Build Tauri desktop
-        run: npx @tauri-apps/cli build
+        run: npx @tauri-apps/cli build --config apps/desktop/src-tauri/tauri.prepared.conf.json
 
       - name: Package Windows installer bundle
         shell: pwsh
@@ -121,7 +121,7 @@ jobs:
         run: uv run python tools/build_engine.py
 
       - name: Build Tauri desktop
-        run: npx @tauri-apps/cli build
+        run: npx @tauri-apps/cli build --config apps/desktop/src-tauri/tauri.prepared.conf.json
 
       - name: Package macOS installer bundle
         run: |
@@ -161,9 +161,15 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
-          else
+            TAG="${{ github.event.inputs.tag_name }}"
+            if [ -z "$TAG" ]; then
+              TAG="v0.1.0"
+            fi
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v0.1.0" >> $GITHUB_OUTPUT
           fi
 
       - name: Create or Update GitHub Release
