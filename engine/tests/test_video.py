@@ -589,3 +589,59 @@ def test_disabled_video_detector_and_evidence_write_failure(tmp_path: Path) -> N
         assert "EVIDENCE_WRITE_FAILED" in json.dumps(finding["metadata"])
     finally:
         service.close()
+
+
+def test_single_pass_video_skips_timestamp_ffprobe(tmp_path: Path) -> None:
+    ctx = context(tmp_path, "clean")
+    stream = cast(dict[str, object], ctx.streams[0])
+    profile = profiles.get("editorial_rushes", "1.0.0")
+    assert not settings(profile, "video.timestamp_integrity")["enabled"]
+    ctx = replace(ctx, qc_profile=profile)
+
+    with patch.object(
+        ctx.media_tools, "stream", wraps=ctx.media_tools.stream
+    ) as mock_stream:
+        path, summary = cache(ctx, stream)
+        assert path.exists()
+        assert summary["frame_count"] > 0
+        assert summary["errors"] == []
+        ffprobe_calls = [
+            call
+            for call in mock_stream.call_args_list
+            if call.kwargs.get("tool") == "ffprobe"
+        ]
+        assert len(ffprobe_calls) == 0
+
+        pts_file = Path(ctx.work_dir) / f"video-{stream['stream_index']}-pts.jsonl"
+        assert not pts_file.exists()
+
+        with path.open("r", encoding="utf-8") as f:
+            first_line = json.loads(f.readline())
+            assert first_line["pts"] is not None
+            assert first_line["pts"] == first_line["time"]
+
+
+def test_pass_with_timestamp_integrity_runs_ffprobe(tmp_path: Path) -> None:
+    ctx = context(tmp_path, "clean")
+    stream = cast(dict[str, object], ctx.streams[0])
+    profile = profiles.builtin()
+    assert settings(profile, "video.timestamp_integrity")["enabled"]
+    ctx = replace(ctx, qc_profile=profile)
+
+    with patch.object(
+        ctx.media_tools, "stream", wraps=ctx.media_tools.stream
+    ) as mock_stream:
+        path, summary = cache(ctx, stream)
+        assert path.exists()
+        assert summary["frame_count"] > 0
+        assert summary["errors"] == []
+        ffprobe_calls = [
+            call
+            for call in mock_stream.call_args_list
+            if call.kwargs.get("tool") == "ffprobe"
+        ]
+        assert len(ffprobe_calls) == 1
+
+        pts_file = Path(ctx.work_dir) / f"video-{stream['stream_index']}-pts.jsonl"
+        assert pts_file.exists()
+

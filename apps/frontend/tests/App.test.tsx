@@ -36,23 +36,20 @@ beforeEach(() => {
   vi.mocked(engine.status).mockResolvedValue(stopped);
 });
 
-test('the shell has an accessible heading and gates ping until startup succeeds', async () => {
+test('the shell has an accessible heading and automatically starts the engine on mount', async () => {
   render(<App />);
   expect(
     screen
       .getByRole('main')
       .contains(screen.getByRole('heading', { level: 1, name: 'MediaQC' })),
   ).toBe(true);
-  expect(
-    screen
-      .getByRole('button', { name: 'Send system.ping' })
-      .hasAttribute('disabled'),
-  ).toBe(true);
-  await screen.findByText('Engine: stopped');
-  expect(engine.start).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Settings' })).toBeDefined();
+  await waitFor(() => {
+    expect(engine.start).toHaveBeenCalled();
+  });
 });
 
-test('launch, capabilities, ping and graceful shutdown are visible', async () => {
+test('launch, capabilities, ping and graceful shutdown are accessible via settings', async () => {
   vi.mocked(engine.start).mockImplementation(() => {
     vi.mocked(engine.status).mockResolvedValue(ready);
     return Promise.resolve(capabilities);
@@ -62,13 +59,17 @@ test('launch, capabilities, ping and graceful shutdown are visible', async () =>
     vi.mocked(engine.status).mockResolvedValue(stopped);
     return Promise.resolve({ forced: false });
   });
+
   render(<App />);
-  await screen.findByText('Engine: stopped');
-  fireEvent.click(screen.getByRole('button', { name: 'Start engine' }));
-  await screen.findByText('Engine: ready');
-  expect(screen.getByText('1.0')).toBeDefined();
+  await screen.findByText('Ready');
+
+  // Open Settings modal
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  await screen.findByText('Settings & Diagnostics');
+
   fireEvent.click(screen.getByRole('button', { name: 'Send system.ping' }));
   await screen.findByText('system.ping → {"pong":true}');
+
   await waitFor(() => {
     expect(
       screen
@@ -78,12 +79,12 @@ test('launch, capabilities, ping and graceful shutdown are visible', async () =>
   });
   fireEvent.click(screen.getByRole('button', { name: 'Stop engine' }));
   await screen.findByText('Engine shut down cleanly.');
-  expect(engine.start).toHaveBeenCalledOnce();
+  expect(engine.start).toHaveBeenCalled();
   expect(engine.ping).toHaveBeenCalledOnce();
   expect(engine.stop).toHaveBeenCalledOnce();
 });
 
-test('startup error has diagnostic code and retry action', async () => {
+test('startup error surfaces alert with diagnostic code and retry button', async () => {
   const failure = {
     code: 'ENGINE_START_FAILED',
     message: 'Bundled engine is missing.',
@@ -97,18 +98,17 @@ test('startup error has diagnostic code and retry action', async () => {
     return Promise.reject(Object.assign(new Error(failure.message), failure));
   });
   render(<App />);
-  await screen.findByText('Engine: stopped');
-  fireEvent.click(screen.getByRole('button', { name: 'Start engine' }));
   expect((await screen.findByRole('alert')).textContent).toContain(
     'ENGINE_START_FAILED',
   );
-  await screen.findByRole('button', { name: 'Restart engine' });
+  await screen.findByRole('button', { name: 'Retry startup' });
 });
 
 test('unexpected idle exit is surfaced without another command and can restart', async () => {
   vi.mocked(engine.status).mockResolvedValue(ready);
   render(<App />);
-  await screen.findByText('Engine: ready');
+  await screen.findByText('Ready');
+
   vi.mocked(engine.status).mockResolvedValue({
     ...stopped,
     phase: 'error',
@@ -121,8 +121,8 @@ test('unexpected idle exit is surfaced without another command and can restart',
     vi.mocked(engine.status).mockResolvedValue(ready);
     return Promise.resolve(capabilities);
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Restart engine' }));
-  await screen.findByText('Engine: ready');
+  fireEvent.click(screen.getByRole('button', { name: 'Retry startup' }));
+  await screen.findByText('Ready');
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
@@ -130,7 +130,11 @@ test('a forced shutdown is not reported as graceful', async () => {
   vi.mocked(engine.status).mockResolvedValue(ready);
   vi.mocked(engine.stop).mockResolvedValue({ forced: true });
   render(<App />);
-  await screen.findByText('Engine: ready');
+  await screen.findByText('Ready');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  await screen.findByText('Settings & Diagnostics');
+
   fireEvent.click(screen.getByRole('button', { name: 'Stop engine' }));
   await screen.findByText(
     'Engine stopped after the graceful shutdown deadline.',

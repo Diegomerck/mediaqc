@@ -408,7 +408,8 @@ def items(db: sqlite3.Connection, params: dict[str, object]) -> dict[str, object
     rows = db.execute(
         "SELECT i.id AS "
         "item_id,i.queue_position,i.relative_path,i.absolute_path,i.status,"
-        "i.analysis_run_id,r.overall_result,i.error_code,i.error_message,i.exclusion_reason,i.duplicate_count"
+        "i.analysis_run_id,r.overall_result,i.error_code,i.error_message,i.exclusion_reason,i.duplicate_count,"
+        "i.import_size_bytes,i.import_modified_at,i.started_at,i.completed_at"
         + query
         + f" ORDER BY {order} LIMIT ? OFFSET ?",
         (batch["id"], limit, offset),
@@ -417,11 +418,32 @@ def items(db: sqlite3.Connection, params: dict[str, object]) -> dict[str, object
     for row in rows:
         value = dict(row)
         value["file_name"] = Path(value["absolute_path"]).name
+        duration_seconds: float | None = None
+        if value.get("started_at") and value.get("completed_at"):
+            try:
+                t1 = datetime.fromisoformat(value["started_at"])
+                t2 = datetime.fromisoformat(value["completed_at"])
+                duration_seconds = max(0.0, round((t2 - t1).total_seconds(), 2))
+            except Exception:
+                duration_seconds = None
+        value["duration_seconds"] = duration_seconds
         value["issue_counts"] = None
-        if value["status"] == "COMPLETED":
+        value["total_findings"] = 0
+        value["waived_findings"] = 0
+        if value["status"] == "COMPLETED" and value["analysis_run_id"]:
             from mediaqc_engine.db.findings import counts as issue_counts
 
             value["issue_counts"] = issue_counts(db, value["analysis_run_id"])
+            finding_stats = db.execute(
+                "SELECT COUNT(*) as total, "
+                "SUM(CASE WHEN disposition IN "
+                "('FALSE_POSITIVE','IGNORED','WAIVED') THEN 1 ELSE 0 END) as waived "
+                "FROM findings WHERE analysis_run_id=?",
+                (value["analysis_run_id"],),
+            ).fetchone()
+            if finding_stats:
+                value["total_findings"] = finding_stats["total"] or 0
+                value["waived_findings"] = finding_stats["waived"] or 0
         values.append(value)
     return {
         "batch_id": batch["id"],

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { Profile } from './jobs';
+export { formatDuration } from './formatters';
 
 export interface Batch {
   batch_id: string;
@@ -51,6 +52,14 @@ export interface BatchItem {
   error_message: string | null;
   exclusion_reason: string | null;
   duplicate_count: number;
+  import_size_bytes?: number | null;
+  import_modified_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_seconds?: number | null;
+  issue_counts?: { INFO: number; WARN: number; FAIL: number } | null;
+  total_findings?: number;
+  waived_findings?: number;
 }
 export interface BatchPage {
   items: BatchItem[];
@@ -80,6 +89,24 @@ export const batches = {
       absolute_path,
       recursive,
     }),
+  importDirectory: (
+    projectIdOrBatchId: string,
+    folderPath: string,
+    recursive = true,
+    batchName?: string,
+  ) => {
+    const label =
+      batchName ||
+      folderPath.split(/[\\/]/).filter(Boolean).at(-1) ||
+      'Media Batch';
+    return batches.create(
+      projectIdOrBatchId,
+      label,
+      'FOLDER',
+      folderPath,
+      recursive,
+    );
+  },
   list: (project_id: string, offset = 0) =>
     call<{ batches: Batch[]; total: number }>('batch.list', {
       project_id,

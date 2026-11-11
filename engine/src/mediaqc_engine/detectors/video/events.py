@@ -232,10 +232,20 @@ class EventDetector(VideoDetector):
                 continue
             head = float(str(policy.get("ignore_head_seconds", 0)))
             tail = float(str(policy.get("ignore_tail_seconds", 0)))
-            if (head > 0 and event.start < stream_start + head) or (
-                tail > 0 and duration > 0 and event.end > stream_start + duration - tail
-            ):
-                continue
+            is_full_span = duration > 0 and (
+                seconds >= duration * 0.8
+                or (
+                    event.start <= stream_start + 1e-6
+                    and event.end >= stream_start + duration - 1e-6
+                )
+            )
+            if not is_full_span:
+                if (head > 0 and event.start < stream_start + head) or (
+                    tail > 0
+                    and duration > 0
+                    and event.end > stream_start + duration - tail
+                ):
+                    continue
             measurements: dict[str, object] = {
                 **event.first,
                 "duration_seconds": seconds,
@@ -243,12 +253,17 @@ class EventDetector(VideoDetector):
                 "similarity_statistic": event.minimum_similarity,
             }
             deterministic = kind in {"black_frame", "near_black_frame"}
+            title = (
+                "Total video signal loss"
+                if kind in {"black_frame", "near_black_frame"} and is_full_span
+                else "Video " + kind.replace("_", " ") + " candidate"
+            )
             result.findings.append(
                 self.finding(
                     context,
                     stream,
                     measurements,
-                    "Video " + kind.replace("_", " ") + " candidate",
+                    title,
                     event.start,
                     event.end,
                     None if deterministic else 0.8,

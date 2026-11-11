@@ -804,3 +804,28 @@ def test_explanations_do_not_invent_missing_measurements(value: float | None) ->
     )
     assert explained == {"summary": "Saved explanation", "comparisons": []}
     json.dumps(explained, allow_nan=False)
+
+
+def test_batch_items_computes_duration_seconds(tmp_path: Path) -> None:
+    project = Project.create(tmp_path / "project", "Duration")
+    db = project.connection
+    identifier = batches.create(db, project.id, "Duration Test", "FOLDER", str(tmp_path))
+    path = tmp_path / "test.wav"
+    batches.add_item(db, identifier, path, path.name)
+    batches.finish_import(db, identifier)
+
+    item_id = db.execute("SELECT id FROM batch_items WHERE batch_id=?", (identifier,)).fetchone()[0]
+    db.execute(
+        "UPDATE batch_items SET started_at=?, completed_at=?, status='COMPLETED' WHERE id=?",
+        ("2026-10-15T12:00:00.000Z", "2026-10-15T12:00:05.250Z", item_id),
+    )
+    db.commit()
+
+    res = batches.items(db, {"batch_id": identifier, "filter": "ALL"})
+    items = res["items"]
+    assert len(items) == 1
+    assert items[0]["started_at"] == "2026-10-15T12:00:00.000Z"
+    assert items[0]["completed_at"] == "2026-10-15T12:00:05.250Z"
+    assert items[0]["duration_seconds"] == 5.25
+    project.close()
+

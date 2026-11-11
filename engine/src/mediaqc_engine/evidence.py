@@ -17,7 +17,7 @@ from mediaqc_engine.jobs.cancellation import CancellationToken
 from mediaqc_engine.media.inspection import fingerprint
 from mediaqc_engine.media.tools import MediaTools
 
-MAX_IMAGE_BYTES = 256 * 1024
+MAX_IMAGE_BYTES = 4 * 1024 * 1024
 LOG = logging.getLogger(__name__)
 
 

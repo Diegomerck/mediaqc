@@ -7,23 +7,37 @@ from pathlib import Path
 from mediaqc_engine.app.errors import AppError
 
 
-def builtin(version: str = "1.2.0") -> dict[str, object]:
-    value: dict[str, object] = json.loads(
-        Path(__file__)
-        .with_name(
-            "general_technical_qc_1_0.json"
-            if version == "1.0.0"
-            else "general_technical_qc_1_1.json"
-            if version == "1.1.0"
-            else "general_technical_qc.json"
-        )
-        .read_text(encoding="utf-8")
-    )
+def _raw(key: str, version: str) -> dict[str, object]:
+    filename: str | None = None
+    if key == "editorial_rushes" and version == "1.0.0":
+        filename = "editorial_rushes_1_0.json"
+    elif key == "general_technical_qc":
+        if version == "1.0.0":
+            filename = "general_technical_qc_1_0.json"
+        elif version == "1.1.0":
+            filename = "general_technical_qc_1_1.json"
+        elif version == "1.2.0":
+            filename = "general_technical_qc.json"
+    if filename is None:
+        raise AppError("PROFILE_NOT_FOUND", "Choose an available profile version")
+    path = Path(__file__).with_name(filename)
+    if not path.is_file():
+        raise AppError("PROFILE_NOT_FOUND", "Choose an available profile version")
+    value: dict[str, object] = json.loads(path.read_text(encoding="utf-8"))
     return value
 
 
+def builtin(version: str = "1.2.0") -> dict[str, object]:
+    return _raw("general_technical_qc", version)
+
+
 def validate(profile: dict[str, object]) -> None:
-    baseline = builtin(str(profile.get("version")))
+    key = str(profile.get("profile_key"))
+    ver = str(profile.get("version"))
+    if key == "editorial_rushes" and ver == "1.0.0":
+        baseline = _raw("editorial_rushes", "1.0.0")
+    else:
+        baseline = builtin(ver)
 
     def check(value: object, template: object) -> None:
         if isinstance(template, dict):
@@ -213,11 +227,24 @@ def validate(profile: dict[str, object]) -> None:
 
 
 def get(key: object, version: object) -> dict[str, object]:
-    profile = builtin(str(version))
-    if key != profile["profile_key"] or version not in {"1.0.0", "1.1.0", "1.2.0"}:
+    if not isinstance(key, str) or not isinstance(version, str):
         raise AppError("PROFILE_NOT_FOUND", "Choose an available profile version")
+    profile = _raw(key, version)
     validate(profile)
     return profile
+
+
+def available() -> list[dict[str, object]]:
+    return [
+        {
+            field: profile[field]
+            for field in ("profile_key", "name", "version", "description")
+        }
+        for profile in (
+            get("editorial_rushes", "1.0.0"),
+            get("general_technical_qc", "1.2.0"),
+        )
+    ]
 
 
 def enabled(profile: dict[str, object], detector_id: str) -> bool:

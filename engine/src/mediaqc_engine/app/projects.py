@@ -131,15 +131,7 @@ class Projects:
         if method == "profile.list":
             if params:
                 raise AppError("INVALID_REQUEST", "Profile list params must be empty")
-            profile = profiles.builtin()
-            return {
-                "profiles": [
-                    {
-                        key: profile[key]
-                        for key in ("profile_key", "name", "version", "description")
-                    }
-                ]
-            }
+            return {"profiles": profiles.available()}
         if method == "profile.get":
             if set(params) != {"profile_key", "version"}:
                 raise AppError("INVALID_REQUEST", "Specify profile_key and version")

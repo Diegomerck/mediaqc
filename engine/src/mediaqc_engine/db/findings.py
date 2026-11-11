@@ -123,7 +123,8 @@ def counts(db: sqlite3.Connection, run_id: str) -> dict[str, int]:
     result = {"INFO": 0, "WARN": 0, "FAIL": 0}
     for row in db.execute(
         "SELECT severity,COUNT(*) AS count FROM findings WHERE analysis_run_id=? "
-        "AND disposition NOT IN ('IGNORED','FALSE_POSITIVE') GROUP BY severity",
+        "AND disposition NOT IN ('IGNORED','FALSE_POSITIVE','WAIVED') "
+        "GROUP BY severity",
         (run_id,),
     ):
         result[row["severity"]] = row["count"]
@@ -243,7 +244,8 @@ def set_disposition(
     disposition, note = params["disposition"], params.get("note")
     if (
         not isinstance(disposition, str)
-        or disposition not in {"OPEN", "CONFIRMED", "FALSE_POSITIVE", "IGNORED"}
+        or disposition
+        not in {"OPEN", "CONFIRMED", "FALSE_POSITIVE", "IGNORED", "WAIVED"}
         or (note is not None and (not isinstance(note, str) or len(note) > 4000))
     ):
         raise AppError(

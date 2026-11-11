@@ -7,7 +7,8 @@ container reader or alternate child owner.
 
 import json
 from collections.abc import Iterator
-from contextlib import closing
+from contextlib import closing, nullcontext
+from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 from typing import cast
@@ -23,6 +24,19 @@ from mediaqc_engine.media.inspection import number as optional_number
 
 Frame = NDArray[np.uint8]
 Row = dict[str, float | None]
+LUMA_WEIGHTS: NDArray[np.float32] = np.array(
+    [0.2126, 0.7152, 0.0722], dtype=np.float32
+)
+
+
+@dataclass
+class FrameFeatures:
+    rgb: NDArray[np.float32]
+    luma: NDArray[np.float32]
+    grey: Frame
+    hist: NDArray[np.float64]
+    edge: float
+    small: Frame
 
 
 def edge_density(grey: Frame) -> float:
@@ -66,60 +80,86 @@ def timestamp(line: str) -> Row | None:
     }
 
 
-def features(frame: Frame, previous: Frame | None, policy: dict[str, object]) -> Row:
-    # Full-range RGB from FFmpeg; BT.709 normalized luma, independent of bit depth.
-    rgb = frame.astype(np.float32) / 255
-    luma = rgb @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+def extract_frame_features(frame: Frame) -> FrameFeatures:
+    rgb: NDArray[np.float32] = (frame.astype(np.float32) / 255).astype(np.float32)
+    luma: NDArray[np.float32] = rgb @ LUMA_WEIGHTS
     grey = np.round(luma * 255).astype(np.uint8)
     hist = np.histogram(luma, bins=32, range=(0, 1))[0] / luma.size
-    difference, hash_similarity, divergence, edge_delta = 0.0, 1.0, 0.0, 0.0
     edge = edge_density(grey)
+    small = cast(Frame, cv2.resize(grey, (9, 8), interpolation=cv2.INTER_AREA))
+    return FrameFeatures(
+        rgb=rgb,
+        luma=luma,
+        grey=grey,
+        hist=hist,
+        edge=edge,
+        small=small,
+    )
+
+
+def compute_features(
+    frame: Frame,
+    previous: FrameFeatures | None,
+    policy: dict[str, object],
+) -> tuple[Row, FrameFeatures]:
+    current = extract_frame_features(frame)
+    difference, hash_similarity, divergence, edge_delta = 0.0, 1.0, 0.0, 0.0
     if previous is not None:
-        old_rgb = previous.astype(np.float32) / 255
-        old_luma = old_rgb @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
-        difference = float(np.mean(np.abs(rgb - old_rgb)))
-        small = cv2.resize(grey, (9, 8), interpolation=cv2.INTER_AREA)
-        old_grey = np.round(old_luma * 255).astype(np.uint8)
-        old_small = cv2.resize(old_grey, (9, 8), interpolation=cv2.INTER_AREA)
+        difference = float(np.mean(np.abs(current.rgb - previous.rgb)))
         hash_similarity = float(
             np.mean(
-                (small[:, 1:] > small[:, :-1]) == (old_small[:, 1:] > old_small[:, :-1])
+                (current.small[:, 1:] > current.small[:, :-1])
+                == (previous.small[:, 1:] > previous.small[:, :-1])
             )
         )
-        old_hist = np.histogram(old_luma, bins=32, range=(0, 1))[0] / luma.size
-        divergence = float(np.sum(np.abs(hist - old_hist)) / 2)
-        edge_delta = abs(edge - edge_density(old_grey))
+        divergence = float(np.sum(np.abs(current.hist - previous.hist)) / 2)
+        edge_delta = abs(current.edge - previous.edge)
     black = cast(dict[str, object], policy["black_frame"])
     near = cast(dict[str, object], policy["near_black_frame"])
     exposure = cast(dict[str, object], policy["exposure_anomaly"])
     color = cast(dict[str, object], policy["color_anomaly"])
-    return {
-        "mean_luma_normalized": float(np.mean(luma)),
+    row: Row = {
+        "mean_luma_normalized": float(np.mean(current.luma)),
         "black_pixel_ratio": float(
-            np.mean(luma <= number(black, "pixel_luma_threshold_normalized"))
+            np.mean(current.luma <= number(black, "pixel_luma_threshold_normalized"))
         ),
         "near_black_pixel_ratio": float(
-            np.mean(luma <= number(near, "pixel_luma_threshold_normalized"))
+            np.mean(current.luma <= number(near, "pixel_luma_threshold_normalized"))
         ),
         "shadow_ratio": float(
-            np.mean(luma <= number(exposure, "shadow_luma_normalized"))
+            np.mean(current.luma <= number(exposure, "shadow_luma_normalized"))
         ),
         "highlight_ratio": float(
-            np.mean(luma >= number(exposure, "highlight_luma_normalized"))
+            np.mean(current.luma >= number(exposure, "highlight_luma_normalized"))
         ),
         "dominant_pixel_ratio": float(
             np.mean(
-                np.ptp(rgb, axis=2) >= number(color, "min_channel_spread_normalized")
+                np.ptp(current.rgb, axis=2)
+                >= number(color, "min_channel_spread_normalized")
             )
         ),
-        "channel_spread_normalized": float(np.ptp(np.mean(rgb, axis=(0, 1)))),
+        "channel_spread_normalized": float(np.ptp(np.mean(current.rgb, axis=(0, 1)))),
         "difference": difference,
         "similarity": 1 - difference,
         "hash_similarity": hash_similarity,
         "histogram_divergence": divergence,
-        "edge_density": edge,
+        "edge_density": current.edge,
         "edge_density_delta": edge_delta,
     }
+    return row, current
+
+
+def features(
+    frame: Frame,
+    previous: Frame | None,
+    policy: dict[str, object],
+    prev_features: FrameFeatures | None = None,
+) -> Row:
+    # Full-range RGB from FFmpeg; BT.709 normalized luma, independent of bit depth.
+    if prev_features is None and previous is not None:
+        prev_features = extract_frame_features(previous)
+    row, _ = compute_features(frame, prev_features, policy)
+    return row
 
 
 def effective_video(context: DetectorContext) -> dict[str, object]:
@@ -146,6 +186,8 @@ def cache(
     if status.exists():
         return path, json.loads(status.read_text())
     policy = effective_video(context)
+    ts_policy = cast(dict[str, object], policy.get("timestamp_integrity", {}))
+    need_packet_timestamps = bool(ts_policy.get("enabled", True))
     size = cast(dict[str, object], policy["measurement"])
     width, height = int(str(size["width"])), int(str(size["height"]))
     source = str(context.media_asset["absolute_path"])
@@ -153,48 +195,54 @@ def cache(
     timestamps = directory / f"{name}-pts.jsonl"
     errors: list[dict[str, object]] = []
     count = 0
-    with timestamps.open("w", encoding="utf-8") as output:
-        try:
-            with closing(
-                context.media_tools.stream(
-                    [
-                        "-threads",
-                        "4",
-                        "-protocol_whitelist",
-                        "file",
-                        "-select_streams",
-                        index,
-                        "-show_frames",
-                        "-show_entries",
-                        "frame=pts_time,duration_time,pkt_duration_time",
-                        "-of",
-                        "compact",
-                        "-i",
-                        source,
-                    ],
-                    tool="ffprobe",
-                    reject_errors=True,
-                )
-            ) as chunks:
-                for line in lines(chunks):
-                    context.cancellation.check()
-                    row = timestamp(line)
-                    if row is not None:
-                        output.write(json.dumps(row) + "\n")
-                        count += 1
-                        if count % 100 == 0:
-                            context.report_progress(max(0, row["pts"] or 0))
-        except AppError as exc:
-            errors.append({"stage": "timestamps", "code": exc.code, **exc.details})
-    previous: Frame | None = None
+    if need_packet_timestamps:
+        with timestamps.open("w", encoding="utf-8") as output:
+            try:
+                with closing(
+                    context.media_tools.stream(
+                        [
+                            "-threads",
+                            "4",
+                            "-protocol_whitelist",
+                            "file",
+                            "-select_streams",
+                            index,
+                            "-show_frames",
+                            "-show_entries",
+                            "frame=pts_time,duration_time,pkt_duration_time",
+                            "-of",
+                            "compact",
+                            "-i",
+                            source,
+                        ],
+                        tool="ffprobe",
+                        reject_errors=True,
+                    )
+                ) as chunks:
+                    for line in lines(chunks):
+                        context.cancellation.check()
+                        row = timestamp(line)
+                        if row is not None:
+                            output.write(json.dumps(row) + "\n")
+                            count += 1
+                            if count % 100 == 0:
+                                context.report_progress(max(0, row["pts"] or 0))
+            except AppError as exc:
+                errors.append({"stage": "timestamps", "code": exc.code, **exc.details})
+    prev_features: FrameFeatures | None = None
     decoded = 0
     first_time: float | None = None
     step = 1 / (
         rate(stream.get("avg_frame_rate")) or rate(stream.get("real_frame_rate")) or 25
     )
     position = float(str(stream.get("start_time_seconds") or 0))
+    pts_context = (
+        timestamps.open(encoding="utf-8")
+        if need_packet_timestamps and timestamps.exists()
+        else nullcontext()
+    )
     with (
-        timestamps.open(encoding="utf-8") as pts,
+        pts_context as pts,
         path.open("w", encoding="utf-8") as output,
     ):
         try:
@@ -238,21 +286,23 @@ def cache(
                     frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                         height, width, 3
                     )
-                    line = pts.readline()
+                    line = pts.readline() if pts is not None else ""
                     timing: Row = (
-                        json.loads(line) if line else {"pts": None, "duration": None}
+                        json.loads(line)
+                        if line
+                        else {"pts": position, "duration": step}
                     )
-                    row = features(frame, previous, policy)
+                    row, prev_features = compute_features(frame, prev_features, policy)
                     actual = timing["pts"]
                     duration = timing["duration"] or step
                     row.update(timing)
-                    row["time"] = actual if actual is not None else position
+                    row["pts"] = actual if actual is not None else position
+                    row["time"] = row["pts"]
                     if first_time is None:
                         first_time = row["time"]
                     row["duration"] = max(0, duration)
                     output.write(json.dumps(row, allow_nan=False) + "\n")
                     position = value(row, "time") + duration
-                    previous = frame
                     decoded += 1
                     if decoded % 25 == 0:
                         context.report_progress(max(0, position))
@@ -266,7 +316,7 @@ def cache(
                 }
             )
     context.cancellation.check()
-    if decoded != count or not decoded:
+    if (need_packet_timestamps and decoded != count) or not decoded:
         errors.append(
             {
                 "code": "FRAME_COUNT_MISMATCH",
