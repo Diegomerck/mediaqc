@@ -67,8 +67,13 @@ pub struct Config {
 
 impl Config {
     pub fn packaged(resources: PathBuf, logs: PathBuf) -> Self {
+        #[cfg(windows)]
+        let exe = "mediaqc-engine.exe";
+        #[cfg(not(windows))]
+        let exe = "mediaqc-engine";
+
         Self {
-            executable: resources.join("resources/engine/mediaqc-engine.exe"),
+            executable: resources.join("resources/engine").join(exe),
             args: vec![
                 "--state-directory".into(),
                 logs.join("recovery").to_string_lossy().into_owned(),

@@ -66,12 +66,18 @@ class MediaTools:
                 self._children.discard(child)
 
     def run(self, tool: str, arguments: list[str]) -> bytes:
-        executable = self.directory / f"{tool}.exe"
+        ext = ".exe" if sys.platform == "win32" else ""
+        executable = self.directory / f"{tool}{ext}"
         if not executable.is_file():
             raise AppError(
                 "MEDIA_INSPECTION_FAILED",
                 "Bundled media tools are missing; rebuild or reinstall MediaQC",
             )
+        if sys.platform != "win32" and not os.access(executable, os.X_OK):
+            try:
+                os.chmod(executable, os.stat(executable).st_mode | 0o755)
+            except OSError:
+                pass
         # Temporary output is in the engine cache, never adjacent to source media.
         cache = self.cache or Path(tempfile.gettempdir()) / "MediaQC/cache"
         cache.mkdir(parents=True, exist_ok=True)
@@ -158,12 +164,24 @@ class MediaTools:
             raise ValueError("Unsupported bundled tool")
         if self.cancelled.is_set():
             raise Cancelled()
+        ext = ".exe" if sys.platform == "win32" else ""
+        executable = self.directory / f"{tool}{ext}"
+        if not executable.is_file():
+            raise AppError(
+                "MEDIA_UNSUPPORTED",
+                "Bundled media tools are missing; rebuild or reinstall MediaQC",
+            )
+        if sys.platform != "win32" and not os.access(executable, os.X_OK):
+            try:
+                os.chmod(executable, os.stat(executable).st_mode | 0o755)
+            except OSError:
+                pass
         excerpt: deque[bytes] = deque(maxlen=8)
         try:
             with (
                 subprocess.Popen(
                     [
-                        str(self.directory / f"{tool}.exe"),
+                        str(executable),
                         *(["-nostdin"] if tool == "ffmpeg" else []),
                         "-v",
                         "error",
