@@ -2,14 +2,37 @@
 
 import json
 import logging
-import msvcrt
+import sys
 from pathlib import Path
 from typing import BinaryIO
+
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 from mediaqc_engine.app.errors import AppError
 from mediaqc_engine.db.batches import reconcile
 from mediaqc_engine.db.project import Project
 from mediaqc_engine.db.runs import recover
+
+
+def _lock_file(file: BinaryIO) -> None:
+    if sys.platform == "win32":
+        msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
+    else:
+        fcntl.flock(file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _unlock_file(file: BinaryIO) -> None:
+    try:
+        if sys.platform == "win32":
+            file.seek(0)
+            msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            fcntl.flock(file.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        pass
 
 
 class Lease:
@@ -21,7 +44,7 @@ class Lease:
         self.file: BinaryIO = path.open("a+b")
         self.file.seek(0)
         try:
-            msvcrt.locking(self.file.fileno(), msvcrt.LK_NBLCK, 1)
+            _lock_file(self.file)
         except OSError as exc:
             self.file.close()
             raise AppError(
@@ -29,7 +52,10 @@ class Lease:
             ) from exc
 
     def close(self) -> None:
-        self.file.close()
+        try:
+            _unlock_file(self.file)
+        finally:
+            self.file.close()
 
 
 class Journal:

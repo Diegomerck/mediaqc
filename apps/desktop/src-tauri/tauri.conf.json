@@ -24,7 +24,9 @@
         {
           "identifier": "local-engine",
           "description": "Only the main window can control the bundled Phase 1 engine.",
-          "windows": ["main"],
+          "windows": [
+            "main"
+          ],
           "permissions": [
             "allow-engine-start",
             "allow-engine-ping",
@@ -42,8 +44,14 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.ico", "icons/icon.png", "icons/icon.icns"],
-    "resources": { "../../../engine/dist/mediaqc-engine/": "resources/engine/" },
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.png",
+      "icons/icon.icns"
+    ],
+    "resources": {
+      "../../../engine/dist/mediaqc-engine/": "resources/engine/"
+    },
     "macOS": {
       "minimumSystemVersion": "10.15",
       "frameworks": []

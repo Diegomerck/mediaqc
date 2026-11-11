@@ -404,13 +404,26 @@ impl Session {
             ownership: Some(ownership),
             capabilities: Value::Null,
         };
-        match session.receive(Instant::now() + config.timeout)? {
-            Message::Event { event, data, .. } if event == "engine.ready" && data.is_empty() => {}
-            _ => {
+        let startup_res = session.receive(Instant::now() + config.timeout);
+        match startup_res {
+            Ok(Message::Event { event, data, .. }) if event == "engine.ready" && data.is_empty() => {}
+            Ok(_) => {
                 return Err(Failure::new(
                     "ENGINE_PROTOCOL_ERROR",
                     "Expected engine.ready at startup",
                 ));
+            }
+            Err(mut failure) => {
+                thread::sleep(Duration::from_millis(100));
+                if let Ok(content) = fs::read_to_string(&config.log_path) {
+                    let trimmed = content.trim();
+                    if !trimmed.is_empty() {
+                        let last_line = trimmed.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("");
+                        failure.message = format!("{}: {}", failure.message, last_line);
+                        failure.details = json!({ "stderr": trimmed });
+                    }
+                }
+                return Err(failure);
             }
         }
         session.capabilities =
