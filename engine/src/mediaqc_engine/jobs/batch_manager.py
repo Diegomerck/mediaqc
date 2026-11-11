@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import sys
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -587,9 +588,10 @@ class BatchManager:
             self.notify(project, identifier, "batch.item_changed", item["id"])
             try:
                 self.tools = self.jobs.tool_factory()
+                ext = ".exe" if sys.platform == "win32" else ""
                 if any(
-                    not (self.tools.directory / tool).is_file()
-                    for tool in ("ffmpeg.exe", "ffprobe.exe")
+                    not (self.tools.directory / f"{tool}{ext}").is_file()
+                    for tool in ("ffmpeg", "ffprobe")
                 ):
                     raise AppError(
                         "RUN_START_FAILED",
