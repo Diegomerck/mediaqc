@@ -6,7 +6,7 @@ from importlib.metadata import version
 
 
 def test_package_is_installed() -> None:
-    assert version("mediaqc-engine") == "0.0.0"
+    assert version("mediaqc-engine") == "0.1.0"
 
 
 def test_import_is_silent() -> None:

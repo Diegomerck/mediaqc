@@ -175,7 +175,7 @@ jobs:
           elif [ "${{ github.ref_type }}" = "tag" ]; then
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           else
-            echo "tag=v0.1.0" >> $GITHUB_OUTPUT
+            echo "tag=v0.1.0-build.${{ github.run_number }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Create or Update GitHub Release

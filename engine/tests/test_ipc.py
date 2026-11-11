@@ -106,7 +106,7 @@ def test_capabilities_are_truthful_and_versioned() -> None:
         response, _ = handle_line(line(request("system.capabilities")))
     assert response is not None
     assert response["result"] == {
-        "engine_version": "0.0.0",
+        "engine_version": "0.1.0",
         "protocol_version": "1.0",
         "schema_version": 4,
         "audio_applicability": {
