@@ -418,8 +418,18 @@ impl Session {
                 if let Ok(content) = fs::read_to_string(&config.log_path) {
                     let trimmed = content.trim();
                     if !trimmed.is_empty() {
-                        let last_line = trimmed.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("");
-                        failure.message = format!("{}: {}", failure.message, last_line);
+                        let lines: Vec<&str> = trimmed.lines().filter(|l| !l.trim().is_empty()).collect();
+                        let summary = if let Some(pyi_idx) = lines.iter().rposition(|l| l.contains("Failed to execute script")) {
+                            if pyi_idx > 0 {
+                                let start = pyi_idx.saturating_sub(4);
+                                lines[start..pyi_idx].join("\n")
+                            } else {
+                                lines[pyi_idx].to_string()
+                            }
+                        } else {
+                            lines.last().copied().unwrap_or("").to_string()
+                        };
+                        failure.message = format!("{}:\n{}", failure.message, summary);
                         failure.details = json!({ "stderr": trimmed });
                     }
                 }
