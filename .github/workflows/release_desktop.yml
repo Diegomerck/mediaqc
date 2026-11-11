@@ -80,8 +80,18 @@ jobs:
           retention-days: 7
 
   build-macos:
-    name: Build macOS Release
-    runs-on: macos-latest
+    name: Build macOS (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Intel-x64
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+          - name: Apple-Silicon
+            os: macos-latest
+            target: aarch64-apple-darwin
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -96,7 +106,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          targets: aarch64-apple-darwin
+          targets: ${{ matrix.target }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
@@ -123,18 +133,18 @@ jobs:
         run: uv run python tools/build_engine.py
 
       - name: Build Tauri desktop
-        run: npx @tauri-apps/cli build --config apps/desktop/src-tauri/tauri.prepared.conf.json
+        run: npx @tauri-apps/cli build --target ${{ matrix.target }} --config apps/desktop/src-tauri/tauri.prepared.conf.json
 
       - name: Package macOS installer bundle
         run: |
           mkdir -p dist/macos
-          find apps/desktop/src-tauri/target/release/bundle/dmg -name "*.dmg" -exec cp {} dist/macos/ \;
+          find apps/desktop/src-tauri/target -name "*.dmg" -exec cp {} dist/macos/ \;
           ls -la dist/macos
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MediaQC-macOS
+          name: MediaQC-macOS-${{ matrix.name }}
           path: dist/macos/*
           retention-days: 7
 
@@ -146,17 +156,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Windows Artifact
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: MediaQC-Windows
           path: ./dist
-
-      - name: Download macOS Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: MediaQC-macOS
-          path: ./dist
+          merge-multiple: true
 
       - name: Determine Release Tag
         id: release_tag

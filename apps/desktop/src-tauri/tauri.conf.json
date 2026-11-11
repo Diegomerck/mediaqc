@@ -45,7 +45,7 @@
     "icon": ["icons/icon.ico", "icons/icon.png", "icons/icon.icns"],
     "resources": { "../../../engine/dist/mediaqc-engine/": "resources/engine/" },
     "macOS": {
-      "minimumSystemVersion": "11.0",
+      "minimumSystemVersion": "10.15",
       "frameworks": []
     }
   }
